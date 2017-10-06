@@ -8,7 +8,7 @@ import "gopkg.in/mgo.v2"
 
 func main() {
 	router := gin.Default()
-	session, err := mgo.Dial("mongodb://aegis:Goldroger1@ds121534.mlab.com:21534/aegis")
+	session, err := mgo.Dial("uri")
 	c := session.DB('aegis').C('users')
 
 	//login group
