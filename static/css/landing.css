@@ -1,0 +1,90 @@
+/* font */
+
+html,body{
+    height: 100%;
+}
+.bg{
+    background-image: url("../img/bg.jpeg");
+    height: 100%; 
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+.navbar-toggler{
+	background-color:white !important;
+}
+.navbar-brand{
+	color:white !important;
+}
+.navbar{
+	background-color: transparent !important;
+	font-family: 'Press Start 2P', cursive !important;	
+
+
+}
+.nav-link{
+	color:white !important;
+	}
+
+.logo{
+	height: 400px;
+	width: 400px;
+}
+.landing_text{
+	position: relative;
+	top: 20%;
+	right: 25%;
+	padding-left: 9px;
+	color:white;
+	font-family: 'Press Start 2P', cursive;
+	font-size: 30px;
+}
+.description{
+	position: relative;
+	top: 25%;
+	left: 25%;
+	color:white;
+	font-family: 'Press Start 2P', cursive;
+	font-size: 30px;
+}
+
+@media only screen and (max-width: 1920px) {
+
+.landing_text{
+	position: relative;
+	top: 20%;
+	right: 25%;
+	color:white;
+	font-family: 'Press Start 2P', cursive;
+	font-size: 50px;
+}
+
+
+  
+}
+@media only screen and (max-width: 991px) {
+.navbar-brand{
+	color:black !important; 
+}
+  
+}
+@media only screen and (max-width: 808px) {
+.description{
+	color:white;
+	font-family: 'Press Start 2P', cursive;
+	font-size: 20px;
+}
+
+}
+@media only screen and (max-width: 510px) {
+.description{
+	color:white;
+	font-family: 'Press Start 2P', cursive;
+	font-size: 16px;
+}
+
+}
+.github{
+	width: 50px;
+	height:50px;
+}

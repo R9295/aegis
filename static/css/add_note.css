@@ -1,0 +1,25 @@
+body{
+	background-color: white;
+}
+
+.container{
+	position: relative;
+	bottom: 15%;
+}
+
+/*
+#drawing_div{
+border: 2px solid black !important;
+border-radius: 10px !important;
+margin-top: 15px !important;
+margin-bottom: 15px !important;
+}
+*/
+canvas{
+	background-color: orange;
+	height: 50% !important;
+}
+
+#input{
+	max-width: 100% !important;
+}
