@@ -40,7 +40,17 @@ func VerifyHash(password, hash string) bool {
 	return err == nil
 }
 
+type User struct{
+	id 		   bson.ObjectId
+	Email  	   string
+	Password   string
+	Acc_Type   string
+	Key_Hash   string 
+	Start_Date string
+	End_Date   string 
 
+
+}
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
@@ -100,19 +110,39 @@ func main() {
 			})
 		route.POST("/login",func(c *gin.Context){
 			//get JSON data
-			var data struct {
-				email string `json:"email" binding:"required"`
-				password string `json:"password" binding:"required"`
-				imageHash string `json:"img_hash" binding:"required"`
+			type LoginData struct {
+				Email string `json:"email" binding:"required"`
+				Password string `json:"password" binding:"required"`
+				Key string `json:"key" binding:"required"`
 			}
+
 			//Check if user exists
+			var data LoginData
+			c.BindJSON(&data)
+			
+			user, err := db_user.Find(bson.M{"email":data.Email}).Count()
+			if err != nil{
+				panic(err)
+			}
 
+			//if exists
+			if user == 1{
+				result := User{}
+				err := db_user.Find(bson.M{"email":data.Email}).One(&result)
+				if err != nil{
+					panic(err)
+				}
+				fmt.Println(result)
 
-			fmt.Println(data)
+			}
 
-			c.JSON(200,gin.H{
-				"message":"pong",
-				})
+			//if not found
+			if user == 0{
+				c.JSON(200,gin.H{
+					"err":"wrong_user_pass",
+					})	
+			}
+
 			})
 
 		//signup GET
