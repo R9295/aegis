@@ -123,38 +123,38 @@ func main() {
 
 		//signup POST
 		route.POST("/signup",func(c *gin.Context){
+			//get the date today
 			t := time.Now()
 			start_date := t.Format("2006-01-02")
 			
-			type SignUpData struct {
-				id        bson.ObjectId `bson:_id,omitempty`
-				email     string `json:"email" binding:"required"`
-				password  string `json:"password" binding:"required"`
-				accType   string `json:"acc_type" binding:"required"`
-				keyHash   string `json:"key_hash" binding:"required"`
-				startDate string
-				endDate   string
+			//construct userdata type
+			type UserData struct {
+				id        bson.ObjectId `bson:_id,omitempty`	
+				Email     string `json:"email" binding:"required"` 		
+				Password  string `json:"password" binding:"required"` 		
+				AccType   string `json:"acc_type" binding:"required"` 	
+				KeyHash   string `json:"key_hash" binding:"required"` 		
+				StartDate string 
+				EndDate   string
 
 			}
 
-
-			var data SignUpData
-			password,err := Hash(data.password)
+			var data UserData
+			password,err := Hash(data.Password)
 			if err != nil{
 				fmt.Println(err)
 			}
-
-
-			if c.BindJSON(&data) == nil{
-			fmt.Println(&SignUpData{
-				email: data.email,
-				password: string(password),
-				accType: data.accType,
-				keyHash: data.keyHash,
-				startDate: start_date,
-				endDate: "ASD" ,
+			c.BindJSON(&data)
+			fmt.Println(UserData{
+				Email: data.Email,
+				Password: string(password),
+				AccType: data.AccType,
+				KeyHash: data.KeyHash,
+				StartDate: start_date,
+				EndDate: "ASD" ,
 				})
-			}
+			fmt.Println(data.Email)
+			
 			})
 
 		//view all notes

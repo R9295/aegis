@@ -70,7 +70,7 @@
     function post(){
     //gather data
     post_data ={};
-    post_data['email'] = $("#email").val()
+    post_data['user'] = $("#email").val()
     post_data['password'] = $("#password").val()
     post_data['acc_type'] = $("#acc_type").val()
    
@@ -119,6 +119,7 @@
 
         //after keys have been encoded and set for download,post data
         //TODO: post only if downloaded
+        console.log(post_data)
 
         $.ajax({
         type: "POST",
