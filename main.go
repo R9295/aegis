@@ -47,7 +47,7 @@ func main() {
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(b))
-	//db_user := session.DB("aegis").C("users")
+	db_user := session.DB("aegis").C("users")
 	//db_note := session.DB("aegis").C("notes")
     if err != nil {
         panic(err)
@@ -132,10 +132,10 @@ func main() {
 				id        bson.ObjectId `bson:_id,omitempty`	
 				Email     string `json:"email" binding:"required"` 		
 				Password  string `json:"password" binding:"required"` 		
-				AccType   string `json:"acc_type" binding:"required"` 	
-				KeyHash   string `json:"key_hash" binding:"required"` 		
-				StartDate string 
-				EndDate   string
+				Acc_Type   string `json:"acc_type" binding:"required"` 	
+				Key_Hash   string `json:"key_hash" binding:"required"` 		
+				Start_Date string 
+				End_Date   string
 
 			}
 
@@ -145,16 +145,14 @@ func main() {
 				fmt.Println(err)
 			}
 			c.BindJSON(&data)
-			fmt.Println(UserData{
+			db_user.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
-				AccType: data.AccType,
-				KeyHash: data.KeyHash,
-				StartDate: start_date,
-				EndDate: "ASD" ,
-				})
-			fmt.Println(data.Email)
-			
+				Acc_Type: data.Acc_Type,
+				Key_Hash: data.Key_Hash,
+				Start_Date: start_date,
+				End_Date: "ASD" ,
+				})			
 			})
 
 		//view all notes
