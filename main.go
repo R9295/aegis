@@ -1,76 +1,201 @@
 package main
 
-import "github.com/gin-gonic/gin"
-//import "net/http"
-import "fmt"
-import "gopkg.in/mgo.v2"
-//import "gopkg.in/mgo.v2/bson"
+import(
+	"fmt"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"io/ioutil"
+	"time"
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+	"net/http"
+	"crypto/rand"
+	"encoding/hex"
+
+)
+
+
+//function to generate random bytes,securely, for a key
+//from https://gist.github.com/shahaya/635a644089868a51eccd6ae22b2eb800
+func GenerateRandomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	// Note that err == nil only if we read len(b) bytes.
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+//hash bcrypt password
+func Hash(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+//Verify bcrypt password
+func VerifyHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 
 func main() {
+	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
-	session, err := mgo.Dial("uri")
-	c := session.DB('aegis').C('users')
+	router.LoadHTMLGlob("templates/*")
+	router.Static("/static", "./static")
+	session, err := mgo.Dial(string(b))
+	//db_user := session.DB("aegis").C("users")
+	//db_note := session.DB("aegis").C("notes")
+    if err != nil {
+        panic(err)
+    }
+    defer session.Close()
 
-	//login group
+	//ROutes
 	route := router.Group("/")
 	{
+
+		//landing page
+		route.GET("/",func(c *gin.Context){
+			c.HTML(http.StatusOK, "landing.tmpl", gin.H{
+				"login":"login",
+				})
+			})
+
+
+		//get key
+		route.POST("/get_key",func(c *gin.Context){
+			gen_key, err := GenerateRandomBytes(32)
+			if err != nil {
+				fmt.Println(err) 
+			}
+			key_hash,err := Hash(string(gen_key))
+			if err != nil{
+				fmt.Println(err)
+			}
+
+			key := hex.EncodeToString(gen_key)
+
+			type response struct{
+				key string
+				key_hash string
+			}
+			
+			c.JSON(200,gin.H{
+				"key":key,
+				"key_hash":string(key_hash),
+				})
+
+
+			
+			})
 		//login
 		route.GET("/login",func(c *gin.Context){
-			c.JSON(200,gin.H{
-				"message":"pong",
+			c.HTML(http.StatusOK, "login.tmpl", gin.H{
+				"login":"login",
 				})
 			})
 		route.POST("/login",func(c *gin.Context){
 			//get JSON data
 			var data struct {
-				username string `json:"username" binding:"required"`
+				email string `json:"email" binding:"required"`
 				password string `json:"password" binding:"required"`
 				imageHash string `json:"img_hash" binding:"required"`
 			}
 			//Check if user exists
 
+
+			fmt.Println(data)
+
 			c.JSON(200,gin.H{
 				"message":"pong",
 				})
 			})
 
-		//signup
+		//signup GET
 		route.GET("/signup",func(c *gin.Context){
-			c.JSON(200,gin.H{
-				"message":"pong",
+			c.HTML(http.StatusOK,"signup.tmpl", gin.H{
 				})
 			})
+
+		//signup POST
 		route.POST("/signup",func(c *gin.Context){
-			c.JSON(200,gin.H{
-				"message":"pong",
-				})
-			})
-
-
-		//view all notes
-		route.POST("/view_all_notes/",func(c *gin.Context) {
-			//collect JSON Data and store in dict
-
-			var json struct {
-				Username string `json:"username" binding:"required"`
+			t := time.Now()
+			start_date := t.Format("2006-01-02")
+			
+			type SignUpData struct {
+				id        bson.ObjectId `bson:_id,omitempty`
+				email     string `json:"email" binding:"required"`
+				password  string `json:"password" binding:"required"`
+				accType   string `json:"acc_type" binding:"required"`
+				keyHash   string `json:"key_hash" binding:"required"`
+				startDate string
+				endDate   string
 
 			}
 
-			//Bind
-			c.Bind(&json)
 
-			//return resposne
-			c.JSON(200,json)
-			fmt.Println("works")
-			
+			var data SignUpData
+			password,err := Hash(data.password)
+			if err != nil{
+				fmt.Println(err)
+			}
 
 
+			if c.BindJSON(&data) == nil{
+			fmt.Println(&SignUpData{
+				email: data.email,
+				password: string(password),
+				accType: data.accType,
+				keyHash: data.keyHash,
+				startDate: start_date,
+				endDate: "ASD" ,
+				})
+			}
+			})
+
+		//view all notes
+		route.POST("/view_all_notes/",func(c *gin.Context) {
+			c.JSON(200,gin.H{
+				"message":"pong",
+				})
+			})
+
+
+		//add note
+		route.GET("/add_note", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "add_note.tmpl", gin.H{
+				"login":"login",
+				})
+			})
+		
+		
+		route.POST("/add_note", func(c *gin.Context) {
+				c.JSON(200,gin.H{
+				"message":"asd",
+				})
+			})
+
+		//view single note
+		route.GET("/view_note/:username/:note_id", func(c *gin.Context) {
+			username := c.Param("username")
+			note_id := c.Param("note_id")
+			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
+					"username":username,
+					"note_id":note_id,
+				})
 			
 		})
 
-	}
+
+		
 	
 	router.Run(":5000")
 	
 }
+}
+
 
