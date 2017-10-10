@@ -15,7 +15,7 @@ import(
 )
 
 
-//function to generate random bytes,securely, for a key
+//function to GenerateRandomBytes,securely, for a key
 //from https://gist.github.com/shahaya/635a644089868a51eccd6ae22b2eb800
 func GenerateRandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
@@ -28,13 +28,13 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-//hash bcrypt password
+//Hash for a simple bcrypt wrapper
 func Hash(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
 }
 
-//Verify bcrypt password
+//VerifyHash for a simple bcrypt wrapper
 func VerifyHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
@@ -82,7 +82,7 @@ func main() {
 			if err != nil {
 				fmt.Println(err) 
 			}
-			key_hash,err := Hash(string(gen_key))
+			key_hash,err := Hash(gen_key)
 			if err != nil{
 				fmt.Println(err)
 			}
@@ -133,6 +133,14 @@ func main() {
 					panic(err)
 				}
 				//check if passwords match.
+				//compare_and_hash := VerifyHash(data.Password,result.Password)
+				hash := VerifyHash(data.Password,result.Password)
+				if hash != true{
+				fmt.Println(result.Password)
+				fmt.Println("err")
+				}
+				
+				
 
 			}
 
@@ -155,17 +163,17 @@ func main() {
 		route.POST("/signup",func(c *gin.Context){
 			//get the date today
 			t := time.Now()
-			start_date := t.Format("2006-01-02")
+			StartDate := t.Format("2006-01-02")
 			
 			//construct userdata type
 			type UserData struct {
 				id        bson.ObjectId `bson:_id,omitempty`	
 				Email     string `json:"email" binding:"required"` 		
 				Password  string `json:"password" binding:"required"` 		
-				Acc_Type   string `json:"acc_type" binding:"required"` 	
-				Key_Hash   string `json:"key_hash" binding:"required"` 		
-				Start_Date string 
-				End_Date   string
+				AccType   string `json:"acc_type" binding:"required"` 	
+				KeyHash   string `json:"key_hash" binding:"required"` 		
+				StartDate string 
+				EndDate   string
 
 			}
 
@@ -178,10 +186,10 @@ func main() {
 			db_user.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
-				Acc_Type: data.Acc_Type,
-				Key_Hash: data.Key_Hash,
-				Start_Date: start_date,
-				End_Date: "ASD" ,
+				AccType: data.AccType,
+				KeyHash: data.KeyHash,
+				StartDate: StartDate,
+				EndDate: "ASD" ,
 				})			
 			})
 
@@ -208,9 +216,9 @@ func main() {
 			})
 
 		//view single note
-		route.GET("/view_note/:username/:note_id", func(c *gin.Context) {
+		route.GET("/view_note/:username/:noteid", func(c *gin.Context) {
 			username := c.Param("username")
-			note_id := c.Param("note_id")
+			noteid := c.Param("noteid")
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
 					"username":username,
 					"note_id":note_id,
