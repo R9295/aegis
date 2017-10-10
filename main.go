@@ -132,7 +132,7 @@ func main() {
 				if err != nil{
 					panic(err)
 				}
-				fmt.Println(result)
+				//check if passwords match.
 
 			}
 
