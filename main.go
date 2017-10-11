@@ -14,7 +14,8 @@ import(
 	"crypto/rand"
  	"golang.org/x/crypto/nacl/secretbox" 
 	"encoding/hex"
-	"github.com/go-redis/redis"
+	"github.com/fzzy/radix/redis"
+	
 
 )
 
@@ -50,21 +51,10 @@ func main() {
 	session, err := mgo.Dial(string(b))
 	db_user := session.DB("aegis").C("users")
 	//db_note := session.DB("aegis").C("notes")
-
-	redis_session := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
-	pong, err := redis_session.Ping().Result()
-	fmt.Println(pong, err)
-    
-    if err != nil {
-        panic(err)
-    }
-    defer session.Close()
-
+	redis_session,err := redis.DialTimeout("tcp", "127.0.0.1:6379", time.Duration(10)*time.Second)
+	if err != nil{
+		panic(err)
+	}
 	//ROutes
 	route := router.Group("/")
 	{
@@ -171,18 +161,24 @@ func main() {
 						var secretkey [32]byte
 						copy(secretkey[:],gen_key)
 
-						// encrypt the key
+						// encrypt the user key
 						encrypted_key := secretbox.Seal(nonce[:], []byte(data.Key), &nonce, &secretkey)
+						
 						key := hex.EncodeToString(encrypted_key)
-						session_data := make(map[int]string)
-						session_data[0] = data.Email
-						session_data[1] = hex.EncodeToString(gen_key)
-						session_data[2] = nonce
-						fmt.Println(session_data)
+						insert := redis_session.Cmd("hmset",uid,"key",gen_key,"nonce",nonce,"user",result.Email)
+						if insert != nil{
+							fmt.Println(insert)
+						}
+						asd := redis_session.Cmd("hmget",uid,"user")
+						if asd != nil{
+							fmt.Println(asd)
+						}
+						//fmt.Println(session_data)
 
 						//redis_session.HMSet(uid,session_data)
 						
 						c.JSON(200,gin.H{
+							"response":"succ",
 							"key" : key,
 							"id": uid,
 							})
