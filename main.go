@@ -351,6 +351,11 @@ func main() {
 			
 		}
 		})
+		route.GET("/logout", func(c *gin.Context){
+			c.JSON(200,gin.H{
+				"get outta":"here"
+				})
+			})
 
 
 		
