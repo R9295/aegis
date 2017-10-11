@@ -2,15 +2,19 @@ package main
 
 import(
 	"fmt"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2" //mongo driver
+	"gopkg.in/mgo.v2/bson" //generate object ids
 	"io/ioutil"
+	"io"
 	"time"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/rs/xid" //UID generation
+	"github.com/gin-gonic/gin" //webserver
+	"golang.org/x/crypto/bcrypt" //password hashing
 	"net/http"
 	"crypto/rand"
+ 	"golang.org/x/crypto/nacl/secretbox" 
 	"encoding/hex"
+	"github.com/go-redis/redis"
 
 )
 
@@ -28,29 +32,16 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-//Hash for a simple bcrypt wrapper
-func Hash(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
-
-//VerifyHash for a simple bcrypt wrapper
-func VerifyHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
-
 type User struct{
 	id 		   bson.ObjectId
 	Email  	   string
 	Password   string
-	Acc_Type   string
-	Key_Hash   string 
-	Start_Date string
-	End_Date   string 
-
-
+	AccType   string
+	KeyHash   string 
+	StartDate string
+	EndDate   string 
 }
+
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
@@ -59,6 +50,16 @@ func main() {
 	session, err := mgo.Dial(string(b))
 	db_user := session.DB("aegis").C("users")
 	//db_note := session.DB("aegis").C("notes")
+
+	redis_session := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	pong, err := redis_session.Ping().Result()
+	fmt.Println(pong, err)
+    
     if err != nil {
         panic(err)
     }
@@ -82,7 +83,7 @@ func main() {
 			if err != nil {
 				fmt.Println(err) 
 			}
-			key_hash,err := Hash(gen_key)
+			key_hash,err := bcrypt.GenerateFromPassword([]byte(string(gen_key)), bcrypt.DefaultCost)
 			if err != nil{
 				fmt.Println(err)
 			}
@@ -133,11 +134,60 @@ func main() {
 					panic(err)
 				}
 				//check if passwords match.
-				//compare_and_hash := VerifyHash(data.Password,result.Password)
-				hash := VerifyHash(data.Password,result.Password)
-				if hash != true{
-				fmt.Println(result.Password)
-				fmt.Println("err")
+				hash := bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(data.Password))
+				if hash != nil{
+				c.JSON(200,gin.H{
+					"err":"wrong_user_pass",
+					})	
+				} else {
+					//if passwords match, see if their keys match.
+					key,err := hex.DecodeString(data.Key)
+					if err != nil{
+						panic(err)
+					}
+					hash := bcrypt.CompareHashAndPassword([]byte(result.KeyHash), []byte(key))
+					if hash != nil{
+						c.JSON(200,gin.H{
+							"err":"wrong_key",
+							})
+					} else{
+						//login successful. 
+
+						//generate UID
+						uid := xid.New().String()
+
+						//create session key to encrypt the key in
+						gen_key, err := GenerateRandomBytes(32)
+						if err != nil{
+							panic(err)
+						}
+						//Generate random nonce
+						var nonce [24]byte
+						if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+    					panic(err)
+						}
+
+						//changing type so that the reads it
+						var secretkey [32]byte
+						copy(secretkey[:],gen_key)
+
+						// encrypt the key
+						encrypted_key := secretbox.Seal(nonce[:], []byte(data.Key), &nonce, &secretkey)
+						key := hex.EncodeToString(encrypted_key)
+						session_data := make(map[int]string)
+						session_data[0] = data.Email
+						session_data[1] = hex.EncodeToString(gen_key)
+						session_data[2] = nonce
+						fmt.Println(session_data)
+
+						//redis_session.HMSet(uid,session_data)
+						
+						c.JSON(200,gin.H{
+							"key" : key,
+							"id": uid,
+							})
+					}
+
 				}
 				
 				
@@ -169,7 +219,7 @@ func main() {
 			type UserData struct {
 				id        bson.ObjectId `bson:_id,omitempty`	
 				Email     string `json:"email" binding:"required"` 		
-				Password  string `json:"password" binding:"required"` 		
+				Password  string  `json:"password" binding:"required"` 		
 				AccType   string `json:"acc_type" binding:"required"` 	
 				KeyHash   string `json:"key_hash" binding:"required"` 		
 				StartDate string 
@@ -178,11 +228,13 @@ func main() {
 			}
 
 			var data UserData
-			password,err := Hash(data.Password)
+			c.BindJSON(&data)
+			password, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
+
 			if err != nil{
 				fmt.Println(err)
 			}
-			c.BindJSON(&data)
+			
 			db_user.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
@@ -221,7 +273,7 @@ func main() {
 			noteid := c.Param("noteid")
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
 					"username":username,
-					"note_id":note_id,
+					"noteid":noteid,
 				})
 			
 		})
