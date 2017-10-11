@@ -11,10 +11,12 @@ import(
 	"github.com/gin-gonic/gin" //webserver
 	"golang.org/x/crypto/bcrypt" //password hashing
 	"net/http"
+	"net/url"
 	"crypto/rand"
  	"golang.org/x/crypto/nacl/secretbox" 
 	"encoding/hex"
-	"github.com/go-redis/redis"
+	"github.com/fzzy/radix/redis"
+	
 
 )
 
@@ -50,20 +52,11 @@ func main() {
 	session, err := mgo.Dial(string(b))
 	db_user := session.DB("aegis").C("users")
 	//db_note := session.DB("aegis").C("notes")
-
-	redis_session := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
-	pong, err := redis_session.Ping().Result()
-	fmt.Println(pong, err)
-    
-    if err != nil {
-        panic(err)
-    }
-    defer session.Close()
+	redis_session,err := redis.DialTimeout("tcp", "127.0.0.1:6379", time.Duration(10)*time.Second)
+	if err != nil{
+		panic(err)
+	}
+	
 
 	//ROutes
 	route := router.Group("/")
@@ -156,6 +149,7 @@ func main() {
 						//generate UID
 						uid := xid.New().String()
 
+
 						//create session key to encrypt the key in
 						gen_key, err := GenerateRandomBytes(32)
 						if err != nil{
@@ -171,18 +165,21 @@ func main() {
 						var secretkey [32]byte
 						copy(secretkey[:],gen_key)
 
-						// encrypt the key
+						// encrypt the user key
 						encrypted_key := secretbox.Seal(nonce[:], []byte(data.Key), &nonce, &secretkey)
+						
 						key := hex.EncodeToString(encrypted_key)
-						session_data := make(map[int]string)
-						session_data[0] = data.Email
-						session_data[1] = hex.EncodeToString(gen_key)
-						session_data[2] = nonce
-						fmt.Println(session_data)
-
-						//redis_session.HMSet(uid,session_data)
+						session := map[string]string{
+							"key":string(gen_key),
+							"user":result.Email,
+						}
+						insert := redis_session.Cmd("hmset",uid,session)
+						if insert != nil{
+							fmt.Println(insert)
+						}
 						
 						c.JSON(200,gin.H{
+							"response":"succ",
 							"key" : key,
 							"id": uid,
 							})
@@ -246,29 +243,105 @@ func main() {
 			})
 
 		//view all notes
-		route.POST("/view_all_notes/",func(c *gin.Context) {
-			c.JSON(200,gin.H{
-				"message":"pong",
-				})
-			})
+		route.GET("/view_notes",func(c *gin.Context) {
+			//get ID
+			id_cookie, err := c.Request.Cookie("id")
+			if err != nil{
+				fmt.Println(err)
+			}
+			id_cookie_val,err := url.QueryUnescape(id_cookie.Value)
+			if err != nil{
+				panic(err)
+			}
 
+			//checksession
+			asd := redis_session.Cmd("hmget",id_cookie_val,"user").String()
+			if asd == "[ <nil> ]"{
+				//session doesnt exist
+				c.JSON(403,gin.H{
+				"status":"unauthorized,fuck_off",
+				})
+			} else{
+				//session exists
+				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
+
+				})
+				
+			}
+			})
 
 		//add note
 		route.GET("/add_note", func(c *gin.Context) {
+			//get ID
+			id_cookie, err := c.Request.Cookie("id")
+			if err != nil{
+				fmt.Println(err)
+			}
+			id_cookie_val,err := url.QueryUnescape(id_cookie.Value)
+			if err != nil{
+				panic(err)
+			}
+
+			//checksession
+			asd := redis_session.Cmd("hmget",id_cookie_val,"user").String()
+			if asd == "[ <nil> ]"{
+				//session doesnt exist
+				c.JSON(403,gin.H{
+				"status":"unauthorized,fuck_off",
+				})
+			} else{
 			c.HTML(http.StatusOK, "add_note.tmpl", gin.H{
 				"login":"login",
 				})
-			})
+			}
+	})
 		
 		
 		route.POST("/add_note", func(c *gin.Context) {
+			//get ID
+			id_cookie, err := c.Request.Cookie("id")
+			if err != nil{
+				fmt.Println(err)
+			}
+			id_cookie_val,err := url.QueryUnescape(id_cookie.Value)
+			if err != nil{
+				panic(err)
+			}
+
+			//checksession
+			asd := redis_session.Cmd("hmget",id_cookie_val,"user").String()
+			if asd == "[ <nil> ]"{
+				//session doesnt exist
+				c.JSON(403,gin.H{
+				"status":"unauthorized,fuck_off",
+				})
+			} else{
 				c.JSON(200,gin.H{
 				"message":"asd",
 				})
+			}
 			})
 
 		//view single note
 		route.GET("/view_note/:username/:noteid", func(c *gin.Context) {
+		//get ID
+			id_cookie, err := c.Request.Cookie("id")
+			if err != nil{
+				fmt.Println(err)
+			}
+			id_cookie_val,err := url.QueryUnescape(id_cookie.Value)
+			if err != nil{
+				panic(err)
+			}
+
+			//checksession
+			asd := redis_session.Cmd("hmget",id_cookie_val,"user").String()
+			if asd == "[ <nil> ]"{
+				//session doesnt exist
+				c.JSON(403,gin.H{
+				"status":"unauthorized,fuck_off",
+				})
+			} else{	
 			username := c.Param("username")
 			noteid := c.Param("noteid")
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
@@ -276,6 +349,7 @@ func main() {
 					"noteid":noteid,
 				})
 			
+		}
 		})
 
 
@@ -285,5 +359,4 @@ func main() {
 	
 }
 }
-
 
