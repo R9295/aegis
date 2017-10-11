@@ -56,11 +56,7 @@ func main() {
 	if err != nil{
 		panic(err)
 	}
-<<<<<<< HEAD
-	
 
-=======
->>>>>>> ea3ce9622affacd8e19b9f718ae5af07ccc1891c
 	//ROutes
 	route := router.Group("/")
 	{
@@ -172,7 +168,6 @@ func main() {
 						encrypted_key := secretbox.Seal(nonce[:], []byte(data.Key), &nonce, &secretkey)
 						
 						key := hex.EncodeToString(encrypted_key)
-<<<<<<< HEAD
 						session := map[string]string{
 							"key":string(gen_key),
 							"user":result.Email,
@@ -181,19 +176,6 @@ func main() {
 						if insert != nil{
 							fmt.Println(insert)
 						}
-=======
-						insert := redis_session.Cmd("hmset",uid,"key",gen_key,"nonce",nonce,"user",result.Email)
-						if insert != nil{
-							fmt.Println(insert)
-						}
-						asd := redis_session.Cmd("hmget",uid,"user")
-						if asd != nil{
-							fmt.Println(asd)
-						}
-						//fmt.Println(session_data)
-
-						//redis_session.HMSet(uid,session_data)
->>>>>>> ea3ce9622affacd8e19b9f718ae5af07ccc1891c
 						
 						c.JSON(200,gin.H{
 							"response":"succ",
