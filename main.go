@@ -44,6 +44,16 @@ type User struct{
 	EndDate   string 
 }
 
+type NoteData struct{
+	id        bson.ObjectId 
+	Title	  string 	 	
+	Note      string 	
+	NoteType  string 	
+	WhenMade  string 	
+	User      string  	
+	Tag		  string  	   
+
+				}
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
@@ -261,10 +271,78 @@ func main() {
 				"status":"unauthorized,fuck_off",
 				})
 			} else{
+
 				//session exists
+				
+				//get user
+				dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+				if err != nil{
+					panic(err)
+				}
+
+				var notes []NoteData
+				iter := dbNote.Find(bson.M{"user": dict["user"]}).Sort("-timesptamp").All(&notes)
+				//all := iter.All(&notes) 
+
+				if iter != nil {
+					fmt.Println("asd")
+				}
+				//get client key from cookie
+				keyInCookie, err := c.Request.Cookie("key")
+				keyVal,err := url.QueryUnescape(keyInCookie.Value)
+				if err != nil{
+					panic(err)
+				}
+				//Decode Client Key
+				encryptedKey,err := hex.DecodeString(keyVal)
+				if err != nil{
+					panic(err)
+				}
+				//copy the first 24 bytes of ciphertext for the nonce
+				var sessionNonce [24]byte
+				copy(sessionNonce[:],encryptedKey[:24])
+
+				//decode session key's hex string 
+				sessionkey,err := hex.DecodeString(dict["key"])
+				if err != nil{
+					panic(err)
+				}
+
+				var sessionKey [32]byte
+				copy(sessionKey[:],sessionkey)
+
+				//decrypt client key with session key
+				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
+				if !ok {
+					panic(err)
+				} 
+				//convert client key into [32]byte
+				var clientKey [32]byte
+				copy(clientKey[:],clientkey)
+				fmt.Println(clientKey)
+
+				//for k,v := range notes{
+				//fmt.Println(k)
+				decode,err := hex.DecodeString(notes[2].Title)
+				if err != nil{
+					fmt.Println(err)
+				}
+				var note_nonce [24]byte
+				copy(note_nonce[:],decode[:24])
+					
+				//fmt.Println(nonce)
+				box,ok := secretbox.Open(nil,decode[24:],&note_nonce,&clientKey) 
+				if !ok{
+					fmt.Println(err)
+				} 
+				fmt.Println(string(box))
+				fmt.Println(len(decode))
 				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
+					"notes":notes,
+					"user":dict["user"],
 
 				})
+
 				
 			}
 			})
@@ -379,7 +457,7 @@ func main() {
 
 				//encrypt
 				encryptedTitle:= secretbox.Seal(titleNonce[:],[]byte(note.Title),&titleNonce,&clientKey)
-				encryptedNote := secretbox.Seal(noteNonce[:],[]byte(note.Note),&titleNonce,&clientKey)
+				encryptedNote := secretbox.Seal(noteNonce[:],[]byte(note.Note),&noteNonce,&clientKey)
 				hexTitle := hex.EncodeToString(encryptedTitle)
 				hexNote := hex.EncodeToString(encryptedNote)
 				//store

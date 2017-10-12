@@ -15,6 +15,12 @@
     <h1 align="center">View all notes
     <br><br>
    <div class="container" id="notes">
+   
+
+   {{range $note := .notes}}
+        <td>{{$note.Title}}</td>                    
+        {{end}}
+   {{.user}}
    </div>
 
 </h1>

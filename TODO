@@ -1,2 +1,2 @@
 add End-date
-fix wrong client key on add_note POST
+fix rendering all notes
