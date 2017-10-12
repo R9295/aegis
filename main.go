@@ -170,7 +170,7 @@ func main() {
 						
 						key := hex.EncodeToString(encrypted_key)
 						session := map[string]string{
-							"key":string(gen_key),
+							"key":hex.EncodeToString(gen_key),
 							"user":result.Email,
 						}
 						insert := redis_session.Cmd("hmset",uid,session)
@@ -330,22 +330,60 @@ func main() {
 				var note Note
 				c.BindJSON(&note)
 				//get client key from cookie
-				KeyInCookie, err := c.Request.Cookie("key")
-				KeyVal,err := url.QueryUnescape(KeyInCookie.Value)
+				keyInCookie, err := c.Request.Cookie("key")
+				keyVal,err := url.QueryUnescape(keyInCookie.Value)
 				if err != nil{
 					panic(err)
 				}
-				
+				//Decode Client Key
+				encryptedKey,err := hex.DecodeString(keyVal)
+				if err != nil{
+					panic(err)
+				}
+				//copy the first 24 bytes of ciphertext for the nonce
+				var sessionNonce [24]byte
+				copy(sessionNonce[:],encryptedKey[:24])
 
-				//var client_key [32]byte
-				//var session_key [32]byte
-				asd := redis_session.Cmd("hmget",id_cookie_val,"key").String()
-				fmt.Println(asd)
-				fmt.Println(note)
-				fmt.Println(KeyVal)
+				dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+				if err != nil{
+					panic(err)
+				}
+				//decode session key's hex string 
+				sessionkey,err := hex.DecodeString(dict["key"])
+				if err != nil{
+					panic(err)
+				}
+
+				var sessionKey [32]byte
+				copy(sessionKey[:],sessionkey)
+
+				//decrypt client key with session key
+				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
+				if !ok {
+					panic(err)
+				} else{
+					fmt.Println(clientkey)
+				}
+				//convert the key into [32]byte
+				var clientKey [32]byte
+				copy(clientKey[:],clientkey)
+
+				//generate nonces
+				var title_nonce [24]byte
+				var note_nonce [24]byte
+				if _, err := io.ReadFull(rand.Reader, title_nonce[:]); err != nil {
+					panic(err)
+				}
+				if _, err := io.ReadFull(rand.Reader, note_nonce[:]); err != nil {
+					panic(err)
+				}
+
+				//encrypt
+				encrypted_title := secretbox.Seal(title_nonce[:],byte(json.Title),&title_nonce,&clientKey)
 
 
 
+			
 
 			}
 			})
