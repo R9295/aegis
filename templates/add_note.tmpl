@@ -172,13 +172,11 @@ function post_data(){
     //If text
   if (note_type === 'text'){
       
-  
-    var crypt = new JSEncrypt();
-
       var data ={}
       data['note'] = simplemde.value()
       data['title'] = $("#name").val()
       data['type'] = 'text'
+      data['tag'] = 'tag'
       
         $.ajax({
         type: "POST",

@@ -316,9 +316,37 @@ func main() {
 				"status":"unauthorized,fuck_off",
 				})
 			} else{
-				c.JSON(200,gin.H{
-				"message":"asd",
-				})
+				//session exists.
+				type Note struct{
+				Id        bson.ObjectId `bson:_id,omitempty`
+				Title	  string 	`json:"title" binding:"required"`
+				Note 	  string 	`json:"note" binding:"required"` 
+				WhenMade  string 	 
+				User      string  	
+				Type 	  string 	`json:"type" binding:"required"`
+				Tag		  string    `json:"tag" binding:"required"`	   
+
+				}
+				var note Note
+				c.BindJSON(&note)
+				//get client key from cookie
+				KeyInCookie, err := c.Request.Cookie("key")
+				KeyVal,err := url.QueryUnescape(KeyInCookie.Value)
+				if err != nil{
+					panic(err)
+				}
+				
+
+				//var client_key [32]byte
+				//var session_key [32]byte
+				asd := redis_session.Cmd("hmget",id_cookie_val,"key").String()
+				fmt.Println(asd)
+				fmt.Println(note)
+				fmt.Println(KeyVal)
+
+
+
+
 			}
 			})
 
@@ -353,7 +381,7 @@ func main() {
 		})
 		route.GET("/logout", func(c *gin.Context){
 			c.JSON(200,gin.H{
-				"get outta":"here"
+				"get outta":"here",
 				})
 			})
 
