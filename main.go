@@ -50,8 +50,8 @@ func main() {
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(b))
-	db_user := session.DB("aegis").C("users")
-	//db_note := session.DB("aegis").C("notes")
+	dbUser := session.DB("aegis").C("users")
+	dbNote := session.DB("aegis").C("notes")
 	redis_session,err := redis.DialTimeout("tcp", "127.0.0.1:6379", time.Duration(10)*time.Second)
 	if err != nil{
 		panic(err)
@@ -114,7 +114,7 @@ func main() {
 			var data LoginData
 			c.BindJSON(&data)
 			
-			user, err := db_user.Find(bson.M{"email":data.Email}).Count()
+			user, err := dbUser.Find(bson.M{"email":data.Email}).Count()
 			if err != nil{
 				panic(err)
 			}
@@ -122,7 +122,7 @@ func main() {
 			//if exists
 			if user == 1{
 				result := User{}
-				err := db_user.Find(bson.M{"email":data.Email}).One(&result)
+				err := dbUser.Find(bson.M{"email":data.Email}).One(&result)
 				if err != nil{
 					panic(err)
 				}
@@ -232,7 +232,7 @@ func main() {
 				fmt.Println(err)
 			}
 			
-			db_user.Insert(UserData{
+			dbUser.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
 				AccType: data.AccType,
@@ -317,17 +317,17 @@ func main() {
 				})
 			} else{
 				//session exists.
-				type Note struct{
-				Id        bson.ObjectId `bson:_id,omitempty`
+				type NoteData struct{
+				id        bson.ObjectId `bson:_id,omitempty`
 				Title	  string 	`json:"title" binding:"required"`
-				Note 	  string 	`json:"note" binding:"required"` 
+				Note      string 	`json:"note" binding:"required"`
+				NoteType 	  string 	`json:"type" binding:"required"` 
 				WhenMade  string 	 
 				User      string  	
-				Type 	  string 	`json:"type" binding:"required"`
 				Tag		  string    `json:"tag" binding:"required"`	   
 
 				}
-				var note Note
+				var note NoteData
 				c.BindJSON(&note)
 				//get client key from cookie
 				keyInCookie, err := c.Request.Cookie("key")
@@ -361,29 +361,41 @@ func main() {
 				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
 				if !ok {
 					panic(err)
-				} else{
-					fmt.Println(clientkey)
-				}
-				//convert the key into [32]byte
+				} 
+				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:],clientkey)
 
 				//generate nonces
-				var title_nonce [24]byte
-				var note_nonce [24]byte
-				if _, err := io.ReadFull(rand.Reader, title_nonce[:]); err != nil {
+				var titleNonce [24]byte
+				var noteNonce [24]byte
+				if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
 					panic(err)
 				}
-				if _, err := io.ReadFull(rand.Reader, note_nonce[:]); err != nil {
+				if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
 					panic(err)
 				}
+				t := time.Now()
+				whenMade := t.Format("2006-01-02")
 
 				//encrypt
-				encrypted_title := secretbox.Seal(title_nonce[:],byte(json.Title),&title_nonce,&clientKey)
-
-
-
-			
+				encryptedTitle:= secretbox.Seal(titleNonce[:],[]byte(note.Title),&titleNonce,&clientKey)
+				encryptedNote := secretbox.Seal(noteNonce[:],[]byte(note.Note),&titleNonce,&clientKey)
+				hexTitle := hex.EncodeToString(encryptedTitle)
+				hexNote := hex.EncodeToString(encryptedNote)
+				//store
+				dbNote.Insert(NoteData{
+					Title:hexTitle,
+					Note:hexNote,
+					WhenMade:whenMade,
+					User:dict["user"],
+					NoteType:note.NoteType,
+					Tag:note.Tag,
+					})
+				
+				c.JSON(200,gin.H{
+				"response":"succ",
+				})			
 
 			}
 			})
