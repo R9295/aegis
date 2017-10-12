@@ -50,8 +50,8 @@ func main() {
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(b))
-	db_user := session.DB("aegis").C("users")
-	//db_note := session.DB("aegis").C("notes")
+	dbUser := session.DB("aegis").C("users")
+	dbNote := session.DB("aegis").C("notes")
 	redis_session,err := redis.DialTimeout("tcp", "127.0.0.1:6379", time.Duration(10)*time.Second)
 	if err != nil{
 		panic(err)
@@ -113,7 +113,7 @@ func main() {
 			var data LoginData
 			c.BindJSON(&data)
 			
-			user, err := db_user.Find(bson.M{"email":data.Email}).Count()
+			user, err := dbUser.Find(bson.M{"email":data.Email}).Count()
 			if err != nil{
 				panic(err)
 			}
@@ -121,7 +121,7 @@ func main() {
 			//if exists
 			if user == 1{
 				result := User{}
-				err := db_user.Find(bson.M{"email":data.Email}).One(&result)
+				err := dbUser.Find(bson.M{"email":data.Email}).One(&result)
 				if err != nil{
 					panic(err)
 				}
@@ -169,7 +169,7 @@ func main() {
 						
 						key := hex.EncodeToString(encrypted_key)
 						session := map[string]string{
-							"key":string(gen_key),
+							"key":hex.EncodeToString(gen_key),
 							"user":result.Email,
 						}
 						insert := redis_session.Cmd("hmset",uid,session)
@@ -231,7 +231,7 @@ func main() {
 				fmt.Println(err)
 			}
 			
-			db_user.Insert(UserData{
+			dbUser.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
 				AccType: data.AccType,
@@ -315,9 +315,87 @@ func main() {
 				"status":"unauthorized,fuck_off",
 				})
 			} else{
+				//session exists.
+				type NoteData struct{
+				id        bson.ObjectId `bson:_id,omitempty`
+				Title	  string 	`json:"title" binding:"required"`
+				Note      string 	`json:"note" binding:"required"`
+				NoteType 	  string 	`json:"type" binding:"required"` 
+				WhenMade  string 	 
+				User      string  	
+				Tag		  string    `json:"tag" binding:"required"`	   
+
+				}
+				var note NoteData
+				c.BindJSON(&note)
+				//get client key from cookie
+				keyInCookie, err := c.Request.Cookie("key")
+				keyVal,err := url.QueryUnescape(keyInCookie.Value)
+				if err != nil{
+					panic(err)
+				}
+				//Decode Client Key
+				encryptedKey,err := hex.DecodeString(keyVal)
+				if err != nil{
+					panic(err)
+				}
+				//copy the first 24 bytes of ciphertext for the nonce
+				var sessionNonce [24]byte
+				copy(sessionNonce[:],encryptedKey[:24])
+
+				dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+				if err != nil{
+					panic(err)
+				}
+				//decode session key's hex string 
+				sessionkey,err := hex.DecodeString(dict["key"])
+				if err != nil{
+					panic(err)
+				}
+
+				var sessionKey [32]byte
+				copy(sessionKey[:],sessionkey)
+
+				//decrypt client key with session key
+				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
+				if !ok {
+					panic(err)
+				} 
+				//convert client key into [32]byte
+				var clientKey [32]byte
+				copy(clientKey[:],clientkey)
+
+				//generate nonces
+				var titleNonce [24]byte
+				var noteNonce [24]byte
+				if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
+					panic(err)
+				}
+				if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
+					panic(err)
+				}
+				t := time.Now()
+				whenMade := t.Format("2006-01-02")
+
+				//encrypt
+				encryptedTitle:= secretbox.Seal(titleNonce[:],[]byte(note.Title),&titleNonce,&clientKey)
+				encryptedNote := secretbox.Seal(noteNonce[:],[]byte(note.Note),&titleNonce,&clientKey)
+				hexTitle := hex.EncodeToString(encryptedTitle)
+				hexNote := hex.EncodeToString(encryptedNote)
+				//store
+				dbNote.Insert(NoteData{
+					Title:hexTitle,
+					Note:hexNote,
+					WhenMade:whenMade,
+					User:dict["user"],
+					NoteType:note.NoteType,
+					Tag:note.Tag,
+					})
+				
 				c.JSON(200,gin.H{
-				"message":"asd",
-				})
+				"response":"succ",
+				})			
+
 			}
 			})
 
@@ -352,7 +430,7 @@ func main() {
 		})
 		route.GET("/logout", func(c *gin.Context){
 			c.JSON(200,gin.H{
-				"get outta":"here"
+				"get outta":"here",
 				})
 			})
 

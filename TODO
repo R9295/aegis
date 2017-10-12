@@ -1,1 +1,2 @@
-fix session info
+add End-date
+fix wrong client key on add_note POST
