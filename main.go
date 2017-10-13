@@ -533,82 +533,88 @@ func main() {
 				c.JSON(403,gin.H{
 				"status":"unauthorized,fuck_off",
 				})
-			} else{	
+			} else{
+
+			//get URL params	
 			user := c.Param("useremail")
 			noteuuid := c.Param("noteuuid")
 			
+			//query info and add result to dict
 			result := NoteData{}
 			err := dbNote.Find(bson.M{"user":user,"uuid":noteuuid}).One(&result)
 			if err != nil{
-				panic(err)
+				//if note wasn't found:
+				c.JSON(403,gin.H{
+				"status":"unauthorized,fuck_off",
+				})
 			}
 			//get client key from cookie
-				keyInCookie, err := c.Request.Cookie("key")
-				keyVal,err := url.QueryUnescape(keyInCookie.Value)
-				if err != nil{
-					panic(err)
-				}
-				//Decode Client Key
-				encryptedKey,err := hex.DecodeString(keyVal)
-				if err != nil{
-					panic(err)
-				}
-				//copy the first 24 bytes of ciphertext for the nonce
-				var sessionNonce [24]byte
-				copy(sessionNonce[:],encryptedKey[:24])
+			keyInCookie, err := c.Request.Cookie("key")
+			keyVal,err := url.QueryUnescape(keyInCookie.Value)
+			if err != nil{
+				panic(err)
+			}
+			//Decode Client Key
+			encryptedKey,err := hex.DecodeString(keyVal)
+			if err != nil{
+				panic(err)
+			}
+			//copy the first 24 bytes of ciphertext for the nonce
+			var sessionNonce [24]byte
+			copy(sessionNonce[:],encryptedKey[:24])
 
-				dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
-				if err != nil{
-					panic(err)
-				}
-				//decode session key's hex string 
-				sessionkey,err := hex.DecodeString(dict["key"])
-				if err != nil{
-					panic(err)
-				}
+			dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+			if err != nil{
+				panic(err)
+			}
+			//decode session key's hex string 
+			sessionkey,err := hex.DecodeString(dict["key"])
+			if err != nil{
+				panic(err)
+			}
 
-				var sessionKey [32]byte
-				copy(sessionKey[:],sessionkey)
+			var sessionKey [32]byte
+			copy(sessionKey[:],sessionkey)
 
-				//decrypt client key with session key
-				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
-				if !ok {
-					panic(err)
-				} 
-				//convert client key into [32]byte
-				var clientKey [32]byte
-				copy(clientKey[:],clientkey)
+			//decrypt client key with session key
+			clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
+			if !ok {
+				panic(err)
+			} 
+			//convert client key into [32]byte
+			var clientKey [32]byte
+			copy(clientKey[:],clientkey)
 
-				//generate empty nonces
-				var noteNonce [24]byte
-				var titleNonce [24]byte
-				
-				//decode the note
-				decodedNote,err := hex.DecodeString(result.Note)
-				if err != nil{
-					panic(err)
-				}
+			//generate empty nonces
+			var noteNonce [24]byte
+			var titleNonce [24]byte
+			
+			//decode the note
+			decodedNote,err := hex.DecodeString(result.Note)
+			if err != nil{
+				panic(err)
+			}
 
-				decodedTitle,err := hex.DecodeString(result.Title)
-				if err != nil{
-					panic(err)
-				}
+			decodedTitle,err := hex.DecodeString(result.Title)
+			if err != nil{
+				panic(err)
+			}
 
-				//copy the nonces from first 24 bytes of ciphertext
-				copy(noteNonce[:],decodedNote)
-				copy(titleNonce[:],decodedTitle)
+			//copy the nonces from first 24 bytes of ciphertext
+			copy(noteNonce[:],decodedNote)
+			copy(titleNonce[:],decodedTitle)
 
-				//decrypt 
-				noteBox,ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&clientKey)
-				if !ok{
-					fmt.Println(err)
-				} 
-				titleBox,ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&clientKey)
-				if !ok{
-					fmt.Println(err)
-				}	
-				result.Note = string(noteBox)
-				result.Title = string(titleBox)
+			//decrypt 
+			noteBox,ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&clientKey)
+			if !ok{
+				fmt.Println(err)
+			} 
+			titleBox,ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&clientKey)
+			if !ok{
+				fmt.Println(err)
+			}	
+			result.Note = string(noteBox)
+			result.Title = string(titleBox)
 
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
 					"user":user,
