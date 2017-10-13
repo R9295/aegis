@@ -319,24 +319,30 @@ func main() {
 				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:],clientkey)
-				fmt.Println(clientKey)
 
-				//for k,v := range notes{
-				//fmt.Println(k)
-				decode,err := hex.DecodeString(notes[2].Title)
-				if err != nil{
-					fmt.Println(err)
-				}
-				var note_nonce [24]byte
-				copy(note_nonce[:],decode[:24])
+				//for all notes
+				for k,v := range notes{
+					fmt.Println(k)
+					//decode the encrypted note
+					decode,err := hex.DecodeString(v.Note)
+					if err != nil{
+						fmt.Println(err)
+					}
+
+					//get the nonce from the first 24 bytes
+					var note_nonce [24]byte
+					copy(note_nonce[:],decode[:24])
 					
-				//fmt.Println(nonce)
-				box,ok := secretbox.Open(nil,decode[24:],&note_nonce,&clientKey) 
-				if !ok{
-					fmt.Println(err)
-				} 
-				fmt.Println(string(box))
-				fmt.Println(len(decode))
+					//decrypt the note
+					box,ok := secretbox.Open(nil,decode[24:],&note_nonce,&clientKey)
+					if !ok{
+						fmt.Println(err)
+					} 
+
+					//set decrypted values to send to browser
+					v.Note = string(box)
+					fmt.Println(v.Note)
+				}
 				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
 					"notes":notes,
 					"user":dict["user"],
