@@ -515,7 +515,7 @@ func main() {
 			})
 
 		//view single note
-		route.GET("/view_note/:username/:noteid", func(c *gin.Context) {
+		route.GET("/view_note/:useremail/:noteuuid", func(c *gin.Context) {
 		//get ID
 			id_cookie, err := c.Request.Cookie("id")
 			if err != nil{
@@ -534,11 +534,85 @@ func main() {
 				"status":"unauthorized,fuck_off",
 				})
 			} else{	
-			username := c.Param("username")
-			noteid := c.Param("noteid")
+			user := c.Param("useremail")
+			noteuuid := c.Param("noteuuid")
+			
+			result := NoteData{}
+			err := dbNote.Find(bson.M{"user":user,"uuid":noteuuid}).One(&result)
+			if err != nil{
+				panic(err)
+			}
+			//get client key from cookie
+				keyInCookie, err := c.Request.Cookie("key")
+				keyVal,err := url.QueryUnescape(keyInCookie.Value)
+				if err != nil{
+					panic(err)
+				}
+				//Decode Client Key
+				encryptedKey,err := hex.DecodeString(keyVal)
+				if err != nil{
+					panic(err)
+				}
+				//copy the first 24 bytes of ciphertext for the nonce
+				var sessionNonce [24]byte
+				copy(sessionNonce[:],encryptedKey[:24])
+
+				dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+				if err != nil{
+					panic(err)
+				}
+				//decode session key's hex string 
+				sessionkey,err := hex.DecodeString(dict["key"])
+				if err != nil{
+					panic(err)
+				}
+
+				var sessionKey [32]byte
+				copy(sessionKey[:],sessionkey)
+
+				//decrypt client key with session key
+				clientkey,ok := secretbox.Open(nil,encryptedKey[24:],&sessionNonce,&sessionKey) 
+				if !ok {
+					panic(err)
+				} 
+				//convert client key into [32]byte
+				var clientKey [32]byte
+				copy(clientKey[:],clientkey)
+
+				//generate empty nonces
+				var noteNonce [24]byte
+				var titleNonce [24]byte
+				
+				//decode the note
+				decodedNote,err := hex.DecodeString(result.Note)
+				if err != nil{
+					panic(err)
+				}
+
+				decodedTitle,err := hex.DecodeString(result.Title)
+				if err != nil{
+					panic(err)
+				}
+
+				//copy the nonces from first 24 bytes of ciphertext
+				copy(noteNonce[:],decodedNote)
+				copy(titleNonce[:],decodedTitle)
+
+				//decrypt 
+				noteBox,ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&clientKey)
+				if !ok{
+					fmt.Println(err)
+				} 
+				titleBox,ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&clientKey)
+				if !ok{
+					fmt.Println(err)
+				}	
+				result.Note = string(noteBox)
+				result.Title = string(titleBox)
+
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
-					"username":username,
-					"noteid":noteid,
+					"user":user,
+					"note":result,
 				})
 			
 		}
