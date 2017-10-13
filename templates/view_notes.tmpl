@@ -18,7 +18,8 @@
    
 
    {{range $note := .notes}}
-        <td>{{$note.Note}}</td>                    
+
+        <td>Title: {{$note.Note}}</td>                    
         {{end}}
    {{.user}}
    </div>

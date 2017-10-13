@@ -52,8 +52,9 @@ type NoteData struct{
 	WhenMade  string 	
 	User      string  	
 	Tag		  string  	   
+}
 
-				}
+
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
@@ -319,12 +320,13 @@ func main() {
 				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:],clientkey)
+				var decryptedNotes []NoteData
 
 				//for all notes
 				for k,v := range notes{
 					fmt.Println(k)
 					//decode the encrypted note
-					decode,err := hex.DecodeString(v.Note)
+					decode,err := hex.DecodeString(v.Title)
 					if err != nil{
 						fmt.Println(err)
 					}
@@ -333,7 +335,7 @@ func main() {
 					var note_nonce [24]byte
 					copy(note_nonce[:],decode[:24])
 					
-					//decrypt the note
+					//decrypt the title
 					box,ok := secretbox.Open(nil,decode[24:],&note_nonce,&clientKey)
 					if !ok{
 						fmt.Println(err)
@@ -341,10 +343,23 @@ func main() {
 
 					//set decrypted values to send to browser
 					v.Note = string(box)
-					fmt.Println(v.Note)
+					asd := NoteData{
+						id:v.id,
+						Title:string(box),
+						Note:v.Note,
+						NoteType:v.NoteType,
+						WhenMade:v.WhenMade,
+						User:v.User,
+						Tag:v.Tag,
+					}
+					add_to_list := append(decryptedNotes,asd)
+					if add_to_list == nil{
+						panic("cant append")
+					}
+					
 				}
 				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
-					"notes":notes,
+					"notes":decryptedNotes,
 					"user":dict["user"],
 
 				})
