@@ -16,12 +16,11 @@
     <br><br>
    <div class="container" id="notes">
    
+    
+  {{range $note := .notes}}
 
-   {{range $note := .notes}}
-
-        <td>Title: {{$note.Note}}</td>                    
+        <td>Title: <a href="view_note/{{$note.User}}/{{$note.Uuid}}">{{$note.Title}}</td></a>
         {{end}}
-   {{.user}}
    </div>
 
 </h1>

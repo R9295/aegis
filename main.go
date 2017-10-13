@@ -46,6 +46,7 @@ type User struct{
 
 type NoteData struct{
 	id        bson.ObjectId 
+	Uuid	  string
 	Title	  string 	 	
 	Note      string 	
 	NoteType  string 	
@@ -282,7 +283,14 @@ func main() {
 				}
 
 				var notes []NoteData
+
 				iter := dbNote.Find(bson.M{"user": dict["user"]}).Sort("-timesptamp").All(&notes)
+				count,err := dbNote.Find(bson.M{"user": dict["user"]}).Count()
+				fmt.Println(count)
+				if err != nil{
+					panic(err)
+				}
+
 				//all := iter.All(&notes) 
 
 				if iter != nil {
@@ -320,7 +328,7 @@ func main() {
 				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:],clientkey)
-				var decryptedNotes []NoteData
+				decryptedNotes := make([]NoteData,count) 
 
 				//for all notes
 				for k,v := range notes{
@@ -341,10 +349,11 @@ func main() {
 						fmt.Println(err)
 					} 
 
-					//set decrypted values to send to browser
-					v.Note = string(box)
-					asd := NoteData{
+					
+					//set decrypted values to insert into slice
+					decryptedNote := NoteData{
 						id:v.id,
+						Uuid:v.Uuid,
 						Title:string(box),
 						Note:v.Note,
 						NoteType:v.NoteType,
@@ -352,10 +361,15 @@ func main() {
 						User:v.User,
 						Tag:v.Tag,
 					}
-					add_to_list := append(decryptedNotes,asd)
-					if add_to_list == nil{
+
+					//append to splice
+					decryptedNotes = append(decryptedNotes[:k],decryptedNote)
+					if decryptedNotes == nil{
 						panic("cant append")
 					}
+
+
+
 					
 				}
 				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
@@ -417,6 +431,7 @@ func main() {
 				//session exists.
 				type NoteData struct{
 				id        bson.ObjectId `bson:_id,omitempty`
+				Uuid	  string 	
 				Title	  string 	`json:"title" binding:"required"`
 				Note      string 	`json:"note" binding:"required"`
 				NoteType 	  string 	`json:"type" binding:"required"` 
@@ -483,6 +498,7 @@ func main() {
 				hexNote := hex.EncodeToString(encryptedNote)
 				//store
 				dbNote.Insert(NoteData{
+					Uuid:xid.New().String(),
 					Title:hexTitle,
 					Note:hexNote,
 					WhenMade:whenMade,
