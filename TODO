@@ -3,3 +3,4 @@ Add Handwritten note
 Add Voice note
 Add query options for view_notes: type, etc 
 fix vars with _
+Limit view_ntoes page to show only 10 each page.
