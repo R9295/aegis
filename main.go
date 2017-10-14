@@ -332,7 +332,6 @@ func main() {
 
 				//for all notes
 				for k,v := range notes{
-					fmt.Println(k)
 					//decode the encrypted note
 					decode,err := hex.DecodeString(v.Title)
 					if err != nil{
@@ -613,6 +612,7 @@ func main() {
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
 					"user":user,
 					"note":result,
+
 				})
 			
 		}

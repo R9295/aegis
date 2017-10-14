@@ -1,2 +1,5 @@
 add End-date
-fix rendering all notes
+Add Handwritten note
+Add Voice note
+Add query options for view_notes: type, etc 
+fix vars with _

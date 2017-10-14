@@ -194,8 +194,28 @@ function post_data(){
   });
 }
 
-  if (note_type === 'audio'){
-    var data = {}
+  if (note_type === 'handwritten'){
+    var data={}
+    data['note'] =String(pad.toImage())
+    data['title'] = $("#name").val()
+    data['type'] = 'handwritten'
+    data['tag'] = 'tag'
+    console.log(data)
+            $.ajax({
+        type: "POST",
+        url: "/add_note",
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        dataType: 'json',
+        success: function success(data){
+          console.log(data.response)
+
+
+  }
+    
+
+  });
+
 
 
 

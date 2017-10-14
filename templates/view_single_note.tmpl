@@ -22,8 +22,6 @@
    <h3 align="center">
      Title:<br>{{.note.Title}}
      <br><br><br>
-     Note:<br>{{.note.Note}}
-   </h3>
   <h3 id="note" align="center">
       
     </h3>
@@ -34,12 +32,20 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
 
   <script>
+  if ('{{.note.NoteType}}' == 'text'){
+
 var converter = new showdown.Converter(),
-    text      = '{{.note_id}}',
+    text      = '{{.note.Note}}',
     html      = converter.makeHtml(text);
     
-    $("#note").html(html)
 
+    $("#note").html(html)
+}
+
+  if ('{{.note.NoteType}}'=='handwritten'){
+    img = '<img src="{{.note.Note}}">'
+    $("#note").html(img)
+  }
 </script>
  
 
