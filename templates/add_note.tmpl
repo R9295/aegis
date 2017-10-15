@@ -30,13 +30,11 @@
     
 
     <div>
-      <label for="note_type">Note Type</label>
+     
     
-    <select  onchange="note_type()" id="note_type">
-      <option selected>Type</option>
-      <option value="text">Text</option>
-      <option value="audio">Audio</option>
-    </select>
+    <button class="uk-button uk-button-default" onclick="set_type('text')">Text</button>
+    <button class="uk-button uk-button-default" onclick="set_type('audio')">Audio</button>
+
     
 
      <div id="input_div">
@@ -72,9 +70,10 @@
 
 $("#drawing_div").hide()
 $("#input_div").hide()
+var notetype = "none"
 
-function note_type(){
-  var notetype = $("#note_type").val();
+ 
+function note_type(notetype){
   if (notetype === 'text'){
     $("#input_div").show()
   }
@@ -83,7 +82,11 @@ function note_type(){
     console.log("still to be introduced")
 }
 
-}   
+}  
+function set_type(notetype){
+  window.notetype = notetype
+  note_type(notetype)
+} 
 
 var simplemde = new SimpleMDE({
   element: document.getElementById("input"),
@@ -93,15 +96,15 @@ var simplemde = new SimpleMDE({
 //Gathering form data,encrypting and posting
 function post_data(){
   //Note Type:
-  var note_type = $("#note_type").val();
+  notetype = window.notetype
     
     //If text
-  if (note_type === 'text'){
+  if (notetype === 'text'){
       
       var data ={}
       data['note'] = simplemde.value()
       data['title'] = $("#name").val()
-      data['type'] = 'text'
+      data['type'] = notetype
       data['tag'] = 'tag'
       
         $.ajax({
