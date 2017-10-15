@@ -19,20 +19,24 @@
 
             <div class="uk-navbar-left">
                 <ul class="uk-navbar-nav">
-                    <li class="uk-active"><a href="#">{{.user}}</a></li>
+                    <li><a href="#">{{.user}}@Aegis</a></li>
                 </ul>
+                <ul class="uk-navbar-nav">
+                    <li><a href="/add_note">ADD NOTE</a></li>
+                </ul>
+                
             </div>
 
 
             <div class="uk-navbar-center">
                 <ul class="uk-navbar-nav">
-                    <li class="uk-active"><a href="#">Aegis</a></li>
+                    <li class="uk-active"><a href="#">Home</a></li>
                 </ul>
             </div>
 
              <div class="uk-navbar-right">
                 <ul class="uk-navbar-nav">
-                    <li class="uk-active"><a href="#">Logout</a></li>
+                    <li><a href="#">Logout</a></li>
                 </ul>
             </div>
 
@@ -51,7 +55,7 @@
         <p></p>
     </div>
     <div class="uk-card-footer">
-        <a href="/view_note/{{$note.User}}/{{$note.Uuid}}" class="uk-button uk-button-text">Read more</a>
+        <a href="#" class="uk-button uk-button-text" onclick="view_note('{{$note.Uuid}}')">Read more</a>
     </div>
 </div>
 
@@ -62,14 +66,61 @@
       $("#{{$note.Uuid}}_{{$note.NoteType}}").text(preview)
      console.log(preview)
   }
+
 </script>
     {{end}}
 
 </div>
-    
+
+<!-- modal-->
+<div id="modal-container" class="uk-modal-container" uk-modal>
+    <div class="uk-modal-dialog uk-modal-body">
+        <button class="uk-modal-close-default" type="button" uk-close></button>
+        <h2 class="uk-modal-title modal_title"></h2>
+        <h2 class="uk-modal-title modal_when_made"></h2>
+        <p id="single-note"></p>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.7.5/showdown.min.js"></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit-icons.min.js'></script>
 
+<script>
+UIkit.modal("#modal-container");
+//get individual note
+  function view_note(uuid){
+        $.ajax({
+        type: "GET",
+        url: "/view_note/{{.user}}/"+uuid,
+        contentType: 'application/json',
+        success: function success(data){
+        
+        //set title
+        $(".modal_title").text(data.note.Title)
+        //set When made
+        $(".modal_when_made").text(data.note.WhenMade)
+        
+        //set Note
+        if (data.note.NoteType == 'text'){
+          var converter = new showdown.Converter(),
+          text      = data.note.Note,
+          html      = converter.makeHtml(text);
+          $("#single-note").html(html)
+        }
+        if (data.note.NoteType == 'audio'){
+          $("#single-note").text("coming soon")
+        }
+        
+        UIkit.modal("#modal-container").show();
+
+
+  }
+    
+
+  });
+
+}
+</script>
 </body>  
 </html>
 

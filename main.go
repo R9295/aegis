@@ -625,10 +625,8 @@ func main() {
 			result.Note = string(noteBox)
 			result.Title = string(titleBox)
 
-			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
-					"user":user,
+			c.JSON(200,gin.H{
 					"note":result,
-
 				})
 			
 		}
