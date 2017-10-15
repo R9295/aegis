@@ -7,14 +7,37 @@
 
       <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
   
-  <link rel='stylesheet prefetch' href='https://getuikit.com/assets/uikit/dist/css/uikit.css?nc=8635'>
+  <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/css/uikit.min.css'>
 
   
   
 </head>
 
-<body class="">
+<body>
+<nav class="uk-navbar-container uk-navbar-transparent" uk-navbar>
+            
 
+            <div class="uk-navbar-left">
+                <ul class="uk-navbar-nav">
+                    <li class="uk-active"><a href="#">{{.user}}</a></li>
+                </ul>
+            </div>
+
+
+            <div class="uk-navbar-center">
+                <ul class="uk-navbar-nav">
+                    <li class="uk-active"><a href="#">Aegis</a></li>
+                </ul>
+            </div>
+
+             <div class="uk-navbar-right">
+                <ul class="uk-navbar-nav">
+                    <li class="uk-active"><a href="#">Logout</a></li>
+                </ul>
+            </div>
+
+        </nav>
+        <br><br>
   <div class="uk-grid-small uk-child-width-1-2@m uk-child-width-1-4@l uk-text-center" uk-grid>
 
   {{range $note := .notes}}
@@ -44,9 +67,8 @@
 
 </div>
     
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
-<script src='https://getuikit.com/assets/uikit/dist/js/uikit.js?nc=8635'></script>
-<script src='https://getuikit.com/assets/uikit/dist/js/uikit-icons.js?nc=8635'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit-icons.min.js'></script>
 
 </body>  
 </html>
