@@ -41,7 +41,7 @@ type User struct{
 	AccType   string
 	KeyHash   string 
 	StartDate string
-	EndDate   string 
+	EndDate   string
 }
 
 type NoteData struct{
@@ -52,7 +52,7 @@ type NoteData struct{
 	NoteType  string 	
 	WhenMade  string 	
 	User      string  	
-	Tag		  string  	   
+	Tags  	  string  	   
 }
 
 
@@ -232,7 +232,6 @@ func main() {
 				KeyHash   string `json:"key_hash" binding:"required"` 		
 				StartDate string 
 				EndDate   string
-
 			}
 
 			var data UserData
@@ -242,7 +241,6 @@ func main() {
 			if err != nil{
 				fmt.Println(err)
 			}
-			
 			dbUser.Insert(UserData{
 				Email: data.Email,
 				Password: string(password),
@@ -368,7 +366,7 @@ func main() {
 						NoteType:v.NoteType,
 						WhenMade:v.WhenMade,
 						User:v.User,
-						Tag:v.Tag,
+						Tags:v.Tags,
 					}
 
 					//append to splice
@@ -443,10 +441,10 @@ func main() {
 				Uuid	  string 	
 				Title	  string 	`json:"title" binding:"required"`
 				Note      string 	`json:"note" binding:"required"`
-				NoteType 	  string 	`json:"type" binding:"required"` 
+				NoteType  string 	`json:"type" binding:"required"` 
 				WhenMade  string 	 
 				User      string  	
-				Tag		  string    `json:"tag" binding:"required"`	   
+				Tags	  string    `json:"tag" binding:"required"`	   
 
 				}
 				var note NoteData
@@ -513,7 +511,7 @@ func main() {
 					WhenMade:whenMade,
 					User:dict["user"],
 					NoteType:note.NoteType,
-					Tag:note.Tag,
+					Tags:note.Tags,
 					})
 				
 				c.JSON(200,gin.H{

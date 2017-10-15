@@ -52,15 +52,18 @@
     <div align="center">
       <label for="name">Title</label>
       <input type="text" id="name" class="uk-input uk-form-width-large">
+      <br>
+      <br>
+      Tag:<input class="uk-input uk-form-width-medium" type="text" placeholder="None" id="tag">
+
     </div>
     <br><br>
-    
-
     <div>
      
     
     <button class="uk-button uk-button-default" onclick="set_type('text')">Text</button>
     <button class="uk-button uk-button-default" onclick="set_type('audio')">Audio</button>
+    <br><br>
 
     
 
@@ -128,11 +131,17 @@ function post_data(){
     //If text
   if (notetype === 'text'){
       
+      //set post data
       var data ={}
       data['note'] = simplemde.value()
       data['title'] = $("#name").val()
       data['type'] = notetype
-      data['tag'] = 'tag'
+      if ($("#tag").val() == ''){
+        data['tag'] = 'None'
+              }
+      if ($("#tag").val() != ''){
+        data['tag'] = $("#tag").val()
+      }
       
         $.ajax({
         type: "POST",

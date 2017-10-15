@@ -1,5 +1,10 @@
 /* fonts */
 @import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
+@import url('https://fonts.googleapis.com/css?family=Raleway');
+
 .font{
   font-family: 'Press Start 2P', cursive;
+}
+.raleway{
+	font-family: 'Raleway', sans-serif;
 }

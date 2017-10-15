@@ -4,16 +4,17 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
       <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.7.5/showdown.min.js"></script>
+
   <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/css/uikit.min.css'>
+      <link rel="stylesheet" type="text/css" href="static/css/common.css">
 
   
   
 </head>
 
-<body>
+<body class="raleway">
 <nav class="uk-navbar-container uk-navbar-transparent" uk-navbar>
             
 
@@ -46,25 +47,24 @@
 
   {{range $note := .notes}}
 
-<div class="uk-card uk-card-default">
+<div class="uk-card uk-card-default uk-card-large" onclick="view_note('{{$note.Uuid}}')">
  <div class="uk-card-badge uk-label">{{$note.NoteType}}</div>
     <div class="uk-card-header">
     {{$note.Title}}
     </div>
     <div class="uk-card-body" id="{{$note.Uuid}}_{{$note.NoteType}}">
-        <p></p>
-    </div>
-    <div class="uk-card-footer">
-        <a href="#" class="uk-button uk-button-text" onclick="view_note('{{$note.Uuid}}')">Read more</a>
+        
     </div>
 </div>
 
 <script>
 
   if ("{{$note.NoteType}}" == "text"){
-      preview = "{{$note.Note}}".substring(0,40)
-      $("#{{$note.Uuid}}_{{$note.NoteType}}").text(preview)
-     console.log(preview)
+      preview = "{{$note.Note}}".substring(0,20)
+      var converter = new showdown.Converter(),
+          text      = preview,
+          html      = converter.makeHtml(text);
+          $("#{{$note.Uuid}}_{{$note.NoteType}}").html(html)
   }
 
 </script>
@@ -75,13 +75,16 @@
 <!-- modal-->
 <div id="modal-container" class="uk-modal-container" uk-modal>
     <div class="uk-modal-dialog uk-modal-body">
+
+    <div class="uk-card-badge uk-label"></div>
+    <br><br>
         <button class="uk-modal-close-default" type="button" uk-close></button>
         <h2 class="uk-modal-title modal_title"></h2>
         <h2 class="uk-modal-title modal_when_made"></h2>
+        <br><br><br>
         <p id="single-note"></p>
     </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.7.5/showdown.min.js"></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit-icons.min.js'></script>
 
@@ -110,6 +113,9 @@ UIkit.modal("#modal-container");
         if (data.note.NoteType == 'audio'){
           $("#single-note").text("coming soon")
         }
+
+        //set type
+        $(".uk-label").text(data.note.NoteType)
         
         UIkit.modal("#modal-container").show();
 
