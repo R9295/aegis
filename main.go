@@ -12,10 +12,10 @@ import(
 	"golang.org/x/crypto/bcrypt" //password hashing
 	"net/http"
 	"net/url"
-	"crypto/rand"
- 	"golang.org/x/crypto/nacl/secretbox" 
-	"encoding/hex"
-	"github.com/fzzy/radix/redis"
+	"crypto/rand" 
+ 	"golang.org/x/crypto/nacl/secretbox" //golang nacl(Salsa20) 
+	"encoding/hex" 
+	"github.com/fzzy/radix/redis"//redis
 	
 
 )
@@ -332,30 +332,39 @@ func main() {
 
 				//for all notes
 				for k,v := range notes{
-					fmt.Println(k)
 					//decode the encrypted note
-					decode,err := hex.DecodeString(v.Title)
+					decodedTitle,err := hex.DecodeString(v.Title)
 					if err != nil{
 						fmt.Println(err)
 					}
+					decodedNote,err  := hex.DecodeString(v.Note)
+					if err != nil{
+						fmt.Println(err)
+					}
+					
 
 					//get the nonce from the first 24 bytes
-					var note_nonce [24]byte
-					copy(note_nonce[:],decode[:24])
+					var noteNonce [24]byte
+					var titleNonce [24]byte
+					copy(noteNonce[:],decodedNote[:24])
+					copy(titleNonce[:],decodedTitle[:24])
 					
 					//decrypt the title
-					box,ok := secretbox.Open(nil,decode[24:],&note_nonce,&clientKey)
+					boxTitle,ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&clientKey)
 					if !ok{
 						fmt.Println(err)
 					} 
-
+					boxNote,ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&clientKey)
+					if !ok{
+						fmt.Println(err)
+					}
 					
 					//set decrypted values to insert into slice
 					decryptedNote := NoteData{
 						id:v.id,
 						Uuid:v.Uuid,
-						Title:string(box),
-						Note:v.Note,
+						Title:string(boxTitle),
+						Note:string(boxNote),
 						NoteType:v.NoteType,
 						WhenMade:v.WhenMade,
 						User:v.User,
@@ -619,6 +628,7 @@ func main() {
 			c.HTML(http.StatusOK,"view_single_note.tmpl",gin.H{
 					"user":user,
 					"note":result,
+
 				})
 			
 		}

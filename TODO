@@ -1,2 +1,8 @@
 add End-date
-fix rendering all notes
+Add Handwritten note
+Add Voice note
+Add query options for view_notes: type, etc 
+fix vars with _
+Limit view_ntoes page to show only 10 each page.
+Ask add_note type before rendering page. Render different pages for each type.
+Update all pages with UI kit
