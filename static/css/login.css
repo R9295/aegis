@@ -1,40 +1,33 @@
-
-body{
-	background-color: black;
-}
 .landing_text{
 	padding-left: 9px;
-	color:red;
+	color:black;
 	font-family: 'Press Start 2P', cursive;
 	font-size: 30px;
 }
 @media only screen and (max-width: 1920px) {
 
 .landing_text{
-	color:red;
+	color:black;
 	font-family: 'Press Start 2P', cursive;
 	font-size: 50px;
 }
 
 label{
-	color:red;
+	color:black;
 	font-family: 'Press Start 2P', cursive;
 
 }
 input{
 	background: transparent !important;
-	border-color: red !important;
-	color:red !important;
+	border-color: black !important;
+	color:black !important;
 }
 button{
 	background: transparent !important;
-	border-color: red !important;
-	color:red !important;
+	border-color: black !important;
+	color:black !important;
 }
 .middle{
 	position: relative !important;
 	top: 50% !important;
-}
-input[input]{
-
 }

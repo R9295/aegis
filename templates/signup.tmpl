@@ -129,7 +129,8 @@
         data: JSON.stringify(post_data),
         dataType: 'json',
         success: function success(data){
-          console.log(data.response)
+          UIkit.notification("<span uk-icon='icon: check'></span> Success!");
+
         },
 
       });

@@ -409,8 +409,13 @@ func main() {
 				"status":"unauthorized,fuck_off",
 				})
 			} else{
+			dict,err := redis_session.Cmd("hgetall",id_cookie_val).Hash()
+			if err != nil{
+				panic(err)
+			}
 			c.HTML(http.StatusOK, "add_note.tmpl", gin.H{
 				"login":"login",
+				"user": dict["user"],
 				})
 			}
 	})

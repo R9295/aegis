@@ -14,33 +14,23 @@
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.css">
   </head>
   <body>
-    <nav class="uk-navbar-container uk-navbar-transparent" uk-navbar>
-            
+  <!--nav inspired by  https://codepen.io/antoinevinial/pen/lnwyC-->
+  <header>
+      
+      <ul class="nav uk-list" >
+          <div style="padding-top: 5px;"></div>
+          <li><a href="#">{{.user}}@Aegis</a></li>
+          <li><a href="/view_notes">Home</a></li>
+          <li><a href="/add_note">Add Note</a></li>
+          <li><a href="/settings">Settings</a></li>
+          <li><a href="/logout">Logout</a></li>
+      </ul>
+               <button class="toggle-nav">
+          <span>></span>
 
-            <div class="uk-navbar-left">
-                <ul class="uk-navbar-nav">
-                    <li><a href="#">{{.user}}@Aegis</a></li>
-                </ul>
-                <ul class="uk-navbar-nav">
-                    <li><a href="/view_notes">Home</a></li>
-                </ul>
-                
-            </div>
 
-
-            <div class="uk-navbar-center">
-                <ul class="uk-navbar-nav">
-                    <li class="uk-active"><a href="#">Add Note</a></li>
-                </ul>
-            </div>
-
-             <div class="uk-navbar-right">
-                <ul class="uk-navbar-nav">
-                    <li><a href="#">Logout</a></li>
-                </ul>
-            </div>
-
-        </nav>
+      </button>
+  </header>
         
     
     
@@ -96,6 +86,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.3/js.cookie.min.js"></script>
   <script>
+  $(document).ready(function(){
+
+    var header = $('header'),
+            btn    = $('button.toggle-nav');
+
+    btn.on('click', function(){
+        header.toggleClass('active');
+    });
+
+});
+
 
 
 $("#drawing_div").hide()
