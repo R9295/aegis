@@ -9,6 +9,7 @@
 
   <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/css/uikit.min.css'>
       <link rel="stylesheet" type="text/css" href="../static/css/common.css">
+      <link rel="stylesheet" type="text/css" href="../static/css/view_notes.css">
 
   
   
@@ -39,9 +40,7 @@
 
         <br><br>
    <div align="center">
-          
-        {{.pagenum}}
-  <div class="uk-container uk-container-large uk-child-width-1-3@m uk-child-width-1-2@s uk-child-width-1-3@l uk-text-center"  uk-grid>
+            <div class="uk-container uk-container-large uk-child-width-1-3@m uk-child-width-1-2@s uk-child-width-1-3@l uk-text-center"  uk-grid>
 
   {{range $note := .notes}}
 
