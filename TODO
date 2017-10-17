@@ -3,7 +3,6 @@ Add Handwritten note
 Add Voice note
 Add query options for view_notes: type, etc 
 fix vars with _
-Add Pages on view notes, limit 10 notes per page.
 Order notes by latest uploaded
 
 

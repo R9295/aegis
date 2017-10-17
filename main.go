@@ -289,7 +289,7 @@ func main() {
 					panic(err)
 				} 
 				//skip the first pagenumber * 10 results as they have been displayed in previous pages 
-				iter := dbNote.Find(bson.M{"user": dict["user"]}).Skip(skipNumber).Limit(10).Sort("+timestamp").All(&notes)
+				iter := dbNote.Find(bson.M{"user": dict["user"]}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
 				count,err := dbNote.Find(bson.M{"user": dict["user"]}).Count()
 				fmt.Println(count)
 				if err != nil{
