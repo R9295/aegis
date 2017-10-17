@@ -2,6 +2,7 @@ package main
 
 import(
 	"fmt"
+	"strconv"
 	"gopkg.in/mgo.v2" //mongo driver
 	"gopkg.in/mgo.v2/bson" //generate object ids
 	"io/ioutil"
@@ -252,7 +253,7 @@ func main() {
 			})
 
 		//view all notes
-		route.GET("/view_notes",func(c *gin.Context) {
+		route.GET("/view_notes/:pagenum",func(c *gin.Context) {
 			//get ID
 			id_cookie, err := c.Request.Cookie("id")
 			if err != nil{
@@ -279,10 +280,16 @@ func main() {
 				if err != nil{
 					panic(err)
 				}
-
 				var notes []NoteData
 
-				iter := dbNote.Find(bson.M{"user": dict["user"]}).Sort("+timesptamp").Limit(10).All(&notes)
+				//get page number before querying
+				urlParam := c.Param("pagenum")+"0"
+				skipNumber,err := strconv.Atoi(urlParam)
+				if err != nil{
+					panic(err)
+				} 
+				//skip the first pagenumber * 10 results as they have been displayed in previous pages 
+				iter := dbNote.Find(bson.M{"user": dict["user"]}).Skip(skipNumber).Limit(10).Sort("+timestamp").All(&notes)
 				count,err := dbNote.Find(bson.M{"user": dict["user"]}).Count()
 				fmt.Println(count)
 				if err != nil{
@@ -382,6 +389,7 @@ func main() {
 				c.HTML(http.StatusOK,"view_notes.tmpl",gin.H{
 					"notes":decryptedNotes,
 					"user":dict["user"],
+					"pagenum":c.Param("pagenum"),
 
 				})
 
