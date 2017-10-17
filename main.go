@@ -282,7 +282,7 @@ func main() {
 
 				var notes []NoteData
 
-				iter := dbNote.Find(bson.M{"user": dict["user"]}).Sort("+timesptamp").All(&notes)
+				iter := dbNote.Find(bson.M{"user": dict["user"]}).Sort("+timesptamp").Limit(10).All(&notes)
 				count,err := dbNote.Find(bson.M{"user": dict["user"]}).Count()
 				fmt.Println(count)
 				if err != nil{
