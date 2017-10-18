@@ -648,6 +648,12 @@ func main() {
 				})
 			})
 
+		route.GET("/pricing",func(c *gin.Context) {
+			c.HTML(http.StatusOK, "pricing.tmpl", gin.H{
+				"None":"None",
+				})
+			
+		})
 
 		
 	
