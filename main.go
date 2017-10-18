@@ -642,11 +642,20 @@ func main() {
 			
 		}
 		})
+		
+		//logout
 		route.GET("/logout", func(c *gin.Context){
 			c.JSON(200,gin.H{
 				"get outta":"here",
 				})
 			})
+
+		//pricing
+		route.GET("/pricing", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "pricing.tmpl", gin.H{
+				})
+			})
+		})
 
 
 		
