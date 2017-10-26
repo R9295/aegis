@@ -59,7 +59,6 @@ type NoteData struct{
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
-	websocket := melody.New()
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(b))
