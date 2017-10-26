@@ -17,7 +17,7 @@ import(
  	"golang.org/x/crypto/nacl/secretbox" //golang nacl(Salsa20) 
 	"encoding/hex" 
 	"github.com/fzzy/radix/redis"//redis
-	
+	"gopkg.in/olahol/melody.v1" //websocket
 
 )
 
@@ -60,6 +60,7 @@ type NoteData struct{
 func main() {
 	b, err := ioutil.ReadFile("private.txt")
 	router := gin.Default()
+	websocket := melody.New()
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(b))
@@ -108,12 +109,14 @@ func main() {
 
 			
 			})
+
 		//login
 		route.GET("/login",func(c *gin.Context){
 			c.HTML(http.StatusOK, "login.tmpl", gin.H{
 				"login":"login",
 				})
 			})
+		
 		route.POST("/login",func(c *gin.Context){
 			//get JSON data
 			type LoginData struct {
@@ -128,7 +131,7 @@ func main() {
 			
 			user, err := dbUser.Find(bson.M{"email":data.Email}).Count()
 			if err != nil{
-				panic(err)
+				fmt.Println("single user not found")
 			}
 
 			//if exists
@@ -136,7 +139,7 @@ func main() {
 				result := User{}
 				err := dbUser.Find(bson.M{"email":data.Email}).One(&result)
 				if err != nil{
-					panic(err)
+					fmt.Println("user not found")
 				}
 				//check if passwords match.
 				hash := bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(data.Password))
@@ -148,7 +151,7 @@ func main() {
 					//if passwords match, see if their keys match.
 					key,err := hex.DecodeString(data.Key)
 					if err != nil{
-						panic(err)
+						fmt.Println("keys dont match")
 					}
 					hash := bcrypt.CompareHashAndPassword([]byte(result.KeyHash), []byte(key))
 					if hash != nil{
@@ -165,12 +168,12 @@ func main() {
 						//create session key to encrypt the key in
 						gen_key, err := GenerateRandomBytes(32)
 						if err != nil{
-							panic(err)
+							fmt.Println("cant generate key")
 						}
 						//Generate random nonce
 						var nonce [24]byte
 						if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-    					panic(err)
+    						fmt.Println("cant generate random nonce")
 						}
 
 						//changing type so that the reads it
@@ -398,7 +401,7 @@ func main() {
 			})
 
 		//add note
-		route.GET("/add_note", func(c *gin.Context) {
+		route.GET("/add_note/:notetype", func(c *gin.Context) {
 			//get ID
 			id_cookie, err := c.Request.Cookie("id")
 			if err != nil{
@@ -421,10 +424,19 @@ func main() {
 			if err != nil{
 				panic(err)
 			}
-			c.HTML(http.StatusOK, "add_note.tmpl", gin.H{
+			noteType := c.Param("notetype")
+			if noteType == "text"{			
+			c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
 				"login":"login",
 				"user": dict["user"],
 				})
+			}
+			if noteType == "audio"{
+				c.HTML(http.StatusOK, "add_note_audio.tmpl", gin.H{
+				"login":"login",
+				"user": dict["user"],
+				})	
+			}
 			}
 	})
 		
@@ -503,10 +515,10 @@ func main() {
 				var titleNonce [24]byte
 				var noteNonce [24]byte
 				if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
-					panic(err)
+					fmt.Println("err making titlenonce")
 				}
 				if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
-					panic(err)
+					fmt.Println("err making notenonce")
 				}
 				t := time.Now()
 				whenMade := t.Format("2006-01-02")
@@ -654,11 +666,26 @@ func main() {
 				})
 			
 		})
+		route.GET("/demoaudio",func(c *gin.Context) {
+			c.HTML(http.StatusOK, "audio.tmpl", gin.H{
+				"None":"None",
+				})
+			
+		})
+		route.GET("/ws", func(c *gin.Context) {
 
+		websocket.HandleRequest(c.Writer, c.Request)
+		})
+			
+		websocket.HandleMessage(func(s *melody.Session, msg []byte) {
+
+		fmt.Println(string(msg))
+		fmt.Println("")
+		fmt.Println("")
+	})
 		
 	
-	router.Run(":5000")
+	router.RunTLS(":5000","aegis.crt","aegis.key")
 	
 }
 }
-
