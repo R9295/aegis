@@ -17,7 +17,6 @@ import(
  	"golang.org/x/crypto/nacl/secretbox" //golang nacl(Salsa20) 
 	"encoding/hex" 
 	"github.com/fzzy/radix/redis"//redis
-	"gopkg.in/olahol/melody.v1" //websocket
 
 )
 
@@ -116,7 +115,7 @@ func main() {
 				"login":"login",
 				})
 			})
-		
+
 		route.POST("/login",func(c *gin.Context){
 			//get JSON data
 			type LoginData struct {
@@ -432,10 +431,9 @@ func main() {
 				})
 			}
 			if noteType == "audio"{
-				c.HTML(http.StatusOK, "add_note_audio.tmpl", gin.H{
-				"login":"login",
-				"user": dict["user"],
-				})	
+				c.JSON(403,gin.H{
+				"status":"in_development",
+				})
 			}
 			}
 	})
@@ -666,24 +664,6 @@ func main() {
 				})
 			
 		})
-		route.GET("/demoaudio",func(c *gin.Context) {
-			c.HTML(http.StatusOK, "audio.tmpl", gin.H{
-				"None":"None",
-				})
-			
-		})
-		route.GET("/ws", func(c *gin.Context) {
-
-		websocket.HandleRequest(c.Writer, c.Request)
-		})
-			
-		websocket.HandleMessage(func(s *melody.Session, msg []byte) {
-
-		fmt.Println(string(msg))
-		fmt.Println("")
-		fmt.Println("")
-	})
-		
 	
 	router.RunTLS(":5000","aegis.crt","aegis.key")
 	

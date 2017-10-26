@@ -1,8 +1,7 @@
 add End-date
-Add Handwritten note
-Add post for voice note
 Change formatting of the title(view_notes), reduce to limited characters.
 Add query options for view_notes: type, etc 
 fix vars with _
+Add update/delete notes.
 
 
