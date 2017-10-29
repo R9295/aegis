@@ -40,7 +40,14 @@
 
         <br><br>
    <div align="center">
+
+           Query type <input type="text" id="querytype" class="uk-input uk-width-1-3@l uk-width-1-3@m">
+            Query <input type="text" id="query" class="uk-input uk-width-1-3@l uk-width-1-3@m">
+            <button class="uk-button uk-button-primary" onclick="search()">Search</button>
             <div class="uk-container uk-container-large uk-child-width-1-3@m uk-child-width-1-2@s uk-child-width-1-3@l uk-text-center"  uk-grid>
+            
+         
+            
 
   {{range $note := .notes}}
 
@@ -180,6 +187,29 @@ UIkit.modal("#modal-container");
         UIkit.modal("#modal-container").show();
 
 
+  }
+    
+
+  });
+
+}
+function search(){
+  query = $("#query").val()
+  queryType = $("#querytype").val()
+  data ={}
+  data['query'] = query
+  data['type'] = queryType
+  data['user'] = "{{.user}}"
+  console.log(JSON.stringify(data))
+
+  $.ajax({
+    type: "POST",
+    url: "/search_notes",
+    contentType: 'application/json',
+    dataType:'json',
+    data: JSON.stringify(),
+    success: function(data){
+      console.log(data.type)
   }
     
 

@@ -31,6 +31,23 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 
 	return b, nil
 }
+
+func checkSession(c *gin.Context,client *redis.Client)(bool,string){
+	idCookie, err := c.Request.Cookie("id")
+	if err != nil{
+		return false,"err"
+	}
+	idCookieVal, err := url.QueryUnescape(idCookie.Value)
+	if err != nil{
+		return false,"err"
+	}
+	check := client.Cmd("hmget",idCookieVal,"user").String()
+	if check == "[ <nil> ]"{
+		return false,"no session"
+	}
+	return true,idCookieVal
+}
+
 type LoginData struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -58,7 +75,6 @@ type NoteData struct {
 	Tags     string
 }
 
-
 type UserData struct {
 	id        bson.ObjectId `bson:_id,omitempty`
 	Email     string        `json:"email" binding:"required"`
@@ -68,6 +84,10 @@ type UserData struct {
 	StartDate string
 	EndDate   string
 }
+
+//func initRedis(){
+//	redisSession, err := redis.DialTimeout("tcp","127.0.0.1:6379".time.Duration(10)*time.Second)
+//}
 
 func main() {
 	mongoUrl, err := ioutil.ReadFile("private.txt")
@@ -89,8 +109,7 @@ func main() {
 
 		//landing page
 		route.GET("/", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "landing.tmpl", gin.H{
-			})
+			c.HTML(http.StatusOK, "landing.tmpl", gin.H{})
 		})
 
 		//get key
@@ -105,7 +124,7 @@ func main() {
 			}
 
 			encodedKey := hex.EncodeToString(key)
- 
+
 			c.JSON(200, gin.H{
 				"key":      encodedKey,
 				"key_hash": string(keyHash),
@@ -115,8 +134,7 @@ func main() {
 
 		//login
 		route.GET("/login", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "login.tmpl", gin.H{
-			})
+			c.HTML(http.StatusOK, "login.tmpl", gin.H{})
 		})
 
 		route.POST("/login", func(c *gin.Context) {
@@ -145,49 +163,54 @@ func main() {
 					})
 				} else {
 					//if passwords match, see if their keys match.
-					key, err := hex.DecodeString(data.Key)
+					userKey, err := hex.DecodeString(data.Key)
 					if err != nil {
-						fmt.Println("keys dont match")
+						fmt.Println(err)
 					}
-					hash := bcrypt.CompareHashAndPassword([]byte(result.KeyHash), []byte(key))
+					hash := bcrypt.CompareHashAndPassword([]byte(result.KeyHash), []byte(userKey))
 					if hash != nil {
 						c.JSON(200, gin.H{
 							"err": "wrong_key",
 						})
 					} else {
-						//login successful.
-
-						//generate UID
+						//Login successful
+						//Generate UID
 						uid := xid.New().String()
 
-						//create session key to encrypt the key in
+						//generate sessionKey
 						key, err := GenerateRandomBytes(32)
 						if err != nil {
-							fmt.Println("cant generate key")
+							panic(err)
 						}
-						//Generate random nonce
+						var sessionKey [32]byte
+						copy(sessionKey[:], key)
+
+						//generate nonce
 						var nonce [24]byte
 						if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-							fmt.Println("cant generate random nonce")
+							fmt.Println("err making nonce")
 						}
 
-						//changing type
-						var sessionKey [32]byte
-						copy(sessionKey[:],key)
+						//encrypt userKey with sessionKey
+						userKey,err := hex.DecodeString(data.Key)
+						if err != nil{
+							panic(err)
+						}
+						encryptedKey := secretbox.Seal(nonce[:],userKey, &nonce, &sessionKey)
 
-						// encrypt the user key
-						encryptedKey := secretbox.Seal(nonce[:], []byte(data.Key), &nonce, &sessionKey)
+						//set session data
+						postKey := hex.EncodeToString(key)
+						sessionData := map[string]string{
+							"sessionKey": postKey,
+							"user":       result.Email,
+						}
 
+						//apply session
+						apply := redisSession.Cmd("hmset", uid, sessionData)
+						if apply == nil {
+							panic("error creating session,redis insert failed")
+						}
 						encodedKey := hex.EncodeToString(encryptedKey)
-						session := map[string]string{
-							"key":  hex.EncodeToString(key),
-							"user": result.Email,
-						}
-						insert := redisSession.Cmd("hmset", uid, session)
-						if insert != nil {
-							fmt.Println(insert)
-						}
-
 						c.JSON(200, gin.H{
 							"response": "succ",
 							"key":      encodedKey,
@@ -238,24 +261,16 @@ func main() {
 
 		//view all notes
 		route.GET("/view_notes/:pagenum", func(c *gin.Context) {
-			//get ID
-			idCookie, err := c.Request.Cookie("id")
-			if err != nil {
-				fmt.Println(err)
-			}
-			idCookieVal, err := url.QueryUnescape(idCookie.Value)
-			if err != nil {
-				panic(err)
-			}
-
-			//checksession
-			asd := redisSession.Cmd("hmget", idCookieVal, "user").String()
-			if asd == "[ <nil> ]" {
-				//session doesnt exist
-				c.JSON(403, gin.H{
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
 					"status": "unauthorized,fuck_off",
 				})
-			} else {
+					} else{
+						panic("check session err")
+					}	
+			}else {
 
 				//session exists
 
@@ -301,7 +316,7 @@ func main() {
 				copy(sessionNonce[:], encryptedKey[:24])
 
 				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["key"])
+				sessionkey, err := hex.DecodeString(dict["sessionKey"])
 				if err != nil {
 					panic(err)
 				}
@@ -377,23 +392,15 @@ func main() {
 
 		//add note
 		route.GET("/add_note/:notetype", func(c *gin.Context) {
-			//get ID
-			idCookie, err := c.Request.Cookie("id")
-			if err != nil {
-				fmt.Println(err)
-			}
-			idCookieVal, err := url.QueryUnescape(idCookie.Value)
-			if err != nil {
-				panic(err)
-			}
-
-			//checksession
-			asd := redisSession.Cmd("hmget", idCookieVal, "user").String()
-			if asd == "[ <nil> ]" {
-				//session doesnt exist
-				c.JSON(403, gin.H{
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
 					"status": "unauthorized,fuck_off",
 				})
+					} else{
+						panic("check session err")
+					}	
 			} else {
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
@@ -402,7 +409,6 @@ func main() {
 				noteType := c.Param("notetype")
 				if noteType == "text" {
 					c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
-						"login": "login",
 						"user":  dict["user"],
 					})
 				}
@@ -416,22 +422,15 @@ func main() {
 
 		route.POST("/add_note", func(c *gin.Context) {
 			//get ID
-			idCookie, err := c.Request.Cookie("id")
-			if err != nil {
-				fmt.Println(err)
-			}
-			idCookieVal, err := url.QueryUnescape(idCookie.Value)
-			if err != nil {
-				panic(err)
-			}
-
-			//checksession
-			asd := redisSession.Cmd("hmget", idCookieVal, "user").String()
-			if asd == "[ <nil> ]" {
-				//session doesnt exist
-				c.JSON(403, gin.H{
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
 					"status": "unauthorized,fuck_off",
 				})
+					} else{
+						panic("check session err")
+					}	
 			} else {
 				//session exists.
 				type NoteData struct {
@@ -466,7 +465,7 @@ func main() {
 					panic(err)
 				}
 				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["key"])
+				sessionkey, err := hex.DecodeString(dict["sessionKey"])
 				if err != nil {
 					panic(err)
 				}
@@ -520,23 +519,15 @@ func main() {
 
 		//view single note
 		route.GET("/view_note/:useremail/:noteuuid", func(c *gin.Context) {
-			//get ID
-			idCookie, err := c.Request.Cookie("id")
-			if err != nil {
-				fmt.Println(err)
-			}
-			idCookieVal, err := url.QueryUnescape(idCookie.Value)
-			if err != nil {
-				panic(err)
-			}
-
-			//checksession
-			asd := redisSession.Cmd("hmget", idCookieVal, "user").String()
-			if asd == "[ <nil> ]" {
-				//session doesnt exist
-				c.JSON(403, gin.H{
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
 					"status": "unauthorized,fuck_off",
 				})
+					} else{
+						panic("check session err")
+					}	
 			} else {
 
 				//get URL params
@@ -572,7 +563,7 @@ func main() {
 					panic(err)
 				}
 				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["key"])
+				sessionkey, err := hex.DecodeString(dict["sessionKey"])
 				if err != nil {
 					panic(err)
 				}
@@ -628,20 +619,55 @@ func main() {
 		})
 
 		//Search by title.
-		route.GET("/search_notes", func(c *gin.Context) {
+		route.POST("/search_notes", func(c *gin.Context) {
 
 			//define params
 			type QueryParam struct {
-				Type string `json"type" binding="required"`
-				User string `json"user" binding="required"`
+				Type  string `json"type" binding="required"`
+				User  string `json"user" binding="required"`
+				Query string `json"query" binding="required"`
 			}
-
 			//bind data
 			var query QueryParam
 			c.BindJSON(&query)
 
-			//get private key
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
+					"status": "unauthorized,fuck_off",
+				})
+					} else{
+						panic("check session err")
+					}	
+			} else  {
 
+				//session exists
+
+				//get user
+				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				if err != nil {
+					panic(err)
+				}
+
+				//search
+				fmt.Println(query)
+				fmt.Println("")
+				fmt.Println("")
+				fmt.Println("")
+				fmt.Println(dict)
+
+				if query.Type == "date" {
+					fmt.Println("date")
+				}
+				if query.Type == "tag" {
+					fmt.Println("tag")
+				}
+				c.JSON(200, gin.H{
+					"type": query.Type,
+				})
+
+			}
 		})
 		route.GET("/logout", func(c *gin.Context) {
 			c.JSON(200, gin.H{
