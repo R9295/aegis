@@ -164,6 +164,40 @@ func getNotes(dbNote *mgo.Collection,queryType string,user string,userKey []byte
 
 }
 
+func getClientKey(c *gin.Context,sessionKey string) []byte{
+	keyInCookie,err := c.Request.Cookie("key")
+	if err != nil{
+		panic(err)
+	}
+	keyVal, err := url.QueryUnescape(keyInCookie.Value)
+	if err != nil{
+		panic(err)
+	}
+
+	encryptedKey, err := hex.DecodeString(keyVal)
+	if err != nil{
+		panic(err)
+	}
+
+	var nonce [24]byte
+	copy(nonce[:],encryptedKey[:24])
+
+	key,err := hex.DecodeString(sessionKey)
+	if err != nil{
+		panic(err)
+	}
+
+	var sessionkey [32]byte
+	copy(sessionkey[:],key)
+	clientKey, ok := secretbox.Open(nil,encryptedKey[24:],&nonce,&sessionkey)
+	if !ok{
+		panic(err)
+	}
+	return clientKey
+
+}
+
+
 type QueryParam struct {
 	QueryType  string `json"querytype" binding="required"`
 	User  string `json"user" binding="required"`
@@ -402,56 +436,10 @@ func main() {
 				if err != nil {
 					panic(err)
 				}
-				var notes []NoteData
 
 				//get page number before querying
 				urlParam := c.Param("pagenum") + "0"
-				skipNumber, err := strconv.Atoi(urlParam)
-				if err != nil {
-					panic(err)
-				}
-				//skip the first pagenumber * 10 results as they have been displayed in previous pages
-				iter := dbNote.Find(bson.M{"user": dict["user"]}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
-				count, err := dbNote.Find(bson.M{"user": dict["user"]}).Count()
-				fmt.Println(count)
-				if err != nil {
-					panic(err)
-				}
-
-				//all := iter.All(&notes)
-
-				if iter != nil {
-					fmt.Println("asd")
-				}
-				//get client key from cookie
-				keyInCookie, err := c.Request.Cookie("key")
-				keyVal, err := url.QueryUnescape(keyInCookie.Value)
-				if err != nil {
-					panic(err)
-				}
-				//Decode Client Key
-				encryptedKey, err := hex.DecodeString(keyVal)
-				if err != nil {
-					panic(err)
-				}
-				//copy the first 24 bytes of ciphertext for the nonce
-				var sessionNonce [24]byte
-				copy(sessionNonce[:], encryptedKey[:24])
-
-				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["sessionKey"])
-				if err != nil {
-					panic(err)
-				}
-
-				var sessionKey [32]byte
-				copy(sessionKey[:], sessionkey)
-
-				//decrypt client key with session key
-				clientkey, ok := secretbox.Open(nil, encryptedKey[24:], &sessionNonce, &sessionKey)
-				if !ok {
-					panic(err)
-				}
+				clientkey := getClientKey(c,dict["sessionKey"])
 				decryptedNotes := getNotes(dbNote,"all",dict["user"],clientkey,urlParam)
 				
 				c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
@@ -518,39 +506,12 @@ func main() {
 				}
 				var note NoteData
 				c.BindJSON(&note)
-				//get client key from cookie
-				keyInCookie, err := c.Request.Cookie("key")
-				keyVal, err := url.QueryUnescape(keyInCookie.Value)
-				if err != nil {
-					panic(err)
-				}
-				//Decode Client Key
-				encryptedKey, err := hex.DecodeString(keyVal)
-				if err != nil {
-					panic(err)
-				}
-				//copy the first 24 bytes of ciphertext for the nonce
-				var sessionNonce [24]byte
-				copy(sessionNonce[:], encryptedKey[:24])
-
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
-				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["sessionKey"])
-				if err != nil {
-					panic(err)
-				}
+				clientkey := getClientKey(c,dict["sessionKey"])
 
-				var sessionKey [32]byte
-				copy(sessionKey[:], sessionkey)
-
-				//decrypt client key with session key
-				clientkey, ok := secretbox.Open(nil, encryptedKey[24:], &sessionNonce, &sessionKey)
-				if !ok {
-					panic(err)
-				}
 				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:], clientkey)
@@ -615,40 +576,13 @@ func main() {
 					c.JSON(403, gin.H{
 						"status": "unauthorized,fuck_off",
 					})
-				}
-				//get client key from cookie
-				keyInCookie, err := c.Request.Cookie("key")
-				keyVal, err := url.QueryUnescape(keyInCookie.Value)
-				if err != nil {
-					panic(err)
-				}
-				//Decode Client Key
-				encryptedKey, err := hex.DecodeString(keyVal)
-				if err != nil {
-					panic(err)
-				}
-				//copy the first 24 bytes of ciphertext for the nonce
-				var sessionNonce [24]byte
-				copy(sessionNonce[:], encryptedKey[:24])
-
+				}				
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
-				//decode session key's hex string
-				sessionkey, err := hex.DecodeString(dict["sessionKey"])
-				if err != nil {
-					panic(err)
-				}
+				clientkey := getClientKey(c,dict["sessionKey"])
 
-				var sessionKey [32]byte
-				copy(sessionKey[:], sessionkey)
-
-				//decrypt client key with session key
-				clientkey, ok := secretbox.Open(nil, encryptedKey[24:], &sessionNonce, &sessionKey)
-				if !ok {
-					panic(err)
-				}
 				//convert client key into [32]byte
 				var clientKey [32]byte
 				copy(clientKey[:], clientkey)
