@@ -48,6 +48,128 @@ func checkSession(c *gin.Context,client *redis.Client)(bool,string){
 	return true,idCookieVal
 }
 
+func getNotes(dbNote *mgo.Collection,queryType string,user string,userKey []byte,query string)[]NoteData{
+	var notes []NoteData
+	var count int
+	//if get all notes
+	if queryType == "all"{
+		skipNumber, err := strconv.Atoi(query)
+		if err != nil {
+			panic(err)
+		}
+		
+		fmt.Println("skipnumber:",skipNumber)
+		iter := dbNote.Find(bson.M{"user":user}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
+		if iter != nil{
+			panic("no notes found all")
+		}
+		count, err := dbNote.Find(bson.M{"user":user}).Count()
+		if err != nil {
+		panic(err)
+		}
+		if count == 0{
+			panic("no notes found")
+		}
+
+}
+	//if get notes by queryType date
+	if queryType == "date"{
+		iter:= dbNote.Find(bson.M{"user":user,"whenmade":query}).All(&notes)
+		if iter == nil{
+			panic("no notes found date")
+		}
+		count, err := dbNote.Find(bson.M{"user":user,"whenmade":query}).Count()
+		if err != nil {
+		panic(err)
+		}
+		if count == 0{
+			panic("no notes found")
+		}
+		
+	}
+
+	//if get notes by queryType tag
+	if queryType == "tag"{
+		iter:= dbNote.Find(bson.M{"user":user,"tag":query}).All(&notes)
+		if iter == nil{
+			panic("no notes found date")
+		}
+		count, err := dbNote.Find(bson.M{"user":user,"tag":query}).Count()
+		if err != nil {
+		panic(err)
+		}
+		if count == 0{
+			panic("no notes found")
+		}
+
+	}
+	
+	//create key
+	var key [32]byte
+	copy(key[:],userKey)
+	decryptedNotes := make([]NoteData, count)
+
+
+	for k, v := range notes{
+
+		//decode the encrypted note
+		decodedTitle, err := hex.DecodeString(v.Title)
+		if err != nil {
+			fmt.Println(err)
+		}
+		decodedNote, err := hex.DecodeString(v.Note)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		//get the nonce from the first 24 bytes
+		var noteNonce [24]byte
+		var titleNonce [24]byte
+		copy(noteNonce[:], decodedNote[:24])
+		copy(titleNonce[:], decodedTitle[:24])
+
+		//decrypt the title
+		boxTitle, ok := secretbox.Open(nil, decodedTitle[24:], &titleNonce, &key)
+		if !ok {
+			fmt.Println(err)
+			}
+
+		boxNote, ok := secretbox.Open(nil, decodedNote[24:], &noteNonce, &key)
+		if !ok {
+			fmt.Println(err)
+			}
+
+		//set decrypted values to insert into slice
+		decryptedNote := NoteData{
+		id:       v.id,
+		Uuid:     v.Uuid,
+		Title:    string(boxTitle),
+		Note:     string(boxNote),
+		NoteType: v.NoteType,
+		WhenMade: v.WhenMade,
+		User:     v.User,
+		Tags:     v.Tags,
+		}
+
+
+		//append to splice
+		decryptedNotes = append(decryptedNotes[:k], decryptedNote)
+		if decryptedNotes == nil {
+			panic("cant append")
+		}
+		
+	}
+	return decryptedNotes
+
+
+}
+
+type QueryParam struct {
+	QueryType  string `json"querytype" binding="required"`
+	User  string `json"user" binding="required"`
+	Query string `json"query" binding="required"`
+}
+
 type LoginData struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -85,12 +207,13 @@ type UserData struct {
 	EndDate   string
 }
 
-//func initRedis(){
-//	redisSession, err := redis.DialTimeout("tcp","127.0.0.1:6379".time.Duration(10)*time.Second)
-//}
 
 func main() {
 	mongoUrl, err := ioutil.ReadFile("private.txt")
+	if err != nil {
+		panic(err)
+
+	}
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
@@ -329,58 +452,8 @@ func main() {
 				if !ok {
 					panic(err)
 				}
-				//convert client key into [32]byte
-				var clientKey [32]byte
-				copy(clientKey[:], clientkey)
-				decryptedNotes := make([]NoteData, count)
-
-				//for all notes
-				for k, v := range notes {
-					//decode the encrypted note
-					decodedTitle, err := hex.DecodeString(v.Title)
-					if err != nil {
-						fmt.Println(err)
-					}
-					decodedNote, err := hex.DecodeString(v.Note)
-					if err != nil {
-						fmt.Println(err)
-					}
-
-					//get the nonce from the first 24 bytes
-					var noteNonce [24]byte
-					var titleNonce [24]byte
-					copy(noteNonce[:], decodedNote[:24])
-					copy(titleNonce[:], decodedTitle[:24])
-
-					//decrypt the title
-					boxTitle, ok := secretbox.Open(nil, decodedTitle[24:], &titleNonce, &clientKey)
-					if !ok {
-						fmt.Println(err)
-					}
-					boxNote, ok := secretbox.Open(nil, decodedNote[24:], &noteNonce, &clientKey)
-					if !ok {
-						fmt.Println(err)
-					}
-
-					//set decrypted values to insert into slice
-					decryptedNote := NoteData{
-						id:       v.id,
-						Uuid:     v.Uuid,
-						Title:    string(boxTitle),
-						Note:     string(boxNote),
-						NoteType: v.NoteType,
-						WhenMade: v.WhenMade,
-						User:     v.User,
-						Tags:     v.Tags,
-					}
-
-					//append to splice
-					decryptedNotes = append(decryptedNotes[:k], decryptedNote)
-					if decryptedNotes == nil {
-						panic("cant append")
-					}
-
-				}
+				decryptedNotes := getNotes(dbNote,"all",dict["user"],clientkey,urlParam)
+				
 				c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
 					"notes":   decryptedNotes,
 					"user":    dict["user"],
@@ -620,16 +693,10 @@ func main() {
 
 		//Search by title.
 		route.POST("/search_notes", func(c *gin.Context) {
-
-			//define params
-			type QueryParam struct {
-				Type  string `json"type" binding="required"`
-				User  string `json"user" binding="required"`
-				Query string `json"query" binding="required"`
-			}
 			//bind data
 			var query QueryParam
 			c.BindJSON(&query)
+			fmt.Println(query)
 
 			check,idCookieVal := checkSession(c,redisSession)
 			if check != true{
@@ -645,26 +712,20 @@ func main() {
 				//session exists
 
 				//get user
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				//dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
 
-				//search
-				fmt.Println(query)
-				fmt.Println("")
-				fmt.Println("")
-				fmt.Println("")
-				fmt.Println(dict)
-
-				if query.Type == "date" {
-					fmt.Println("date")
+				if query.QueryType == "date" {
+					//search by date
 				}
-				if query.Type == "tag" {
-					fmt.Println("tag")
+				if query.QueryType == "tag" {
+					//search by tag
+					
 				}
 				c.JSON(200, gin.H{
-					"type": query.Type,
+					"type": query.QueryType,
 				})
 
 			}

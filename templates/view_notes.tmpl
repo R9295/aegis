@@ -198,22 +198,22 @@ function search(){
   queryType = $("#querytype").val()
   data ={}
   data['query'] = query
-  data['type'] = queryType
+  data['querytype'] = queryType
   data['user'] = "{{.user}}"
   console.log(JSON.stringify(data))
 
-  $.ajax({
-    type: "POST",
-    url: "/search_notes",
-    contentType: 'application/json',
-    dataType:'json',
-    data: JSON.stringify(),
-    success: function(data){
+  
+      $.ajax({
+        type: "POST",
+        url: "/search_notes",
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        dataType: 'json',
+        success: function success(data){
       console.log(data.type)
-  }
-    
+        },
 
-  });
+      });
 
 }
 </script>
