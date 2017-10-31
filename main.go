@@ -32,85 +32,85 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-func checkSession(c *gin.Context,client *redis.Client)(bool,string){
+func checkSession(c *gin.Context, client *redis.Client) (bool, string) {
 	idCookie, err := c.Request.Cookie("id")
-	if err != nil{
-		return false,"err"
+	if err != nil {
+		return false, "err"
 	}
 	idCookieVal, err := url.QueryUnescape(idCookie.Value)
-	if err != nil{
-		return false,"err"
+	if err != nil {
+		return false, "err"
 	}
-	check := client.Cmd("hmget",idCookieVal,"user").String()
-	if check == "[ <nil> ]"{
-		return false,"no session"
+	check := client.Cmd("hmget", idCookieVal, "user").String()
+	if check == "[ <nil> ]" {
+		return false, "no session"
 	}
-	return true,idCookieVal
+	return true, idCookieVal
 }
 
-func getNotes(dbNote *mgo.Collection,queryType string,user string,userKey []byte,query string)[]NoteData{
+func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []byte, query string) []NoteData {
 	var notes []NoteData
 	var count int
 	//if get all notes
-	if queryType == "all"{
+	if queryType == "all" {
 		skipNumber, err := strconv.Atoi(query)
 		if err != nil {
 			panic(err)
 		}
-		
-		fmt.Println("skipnumber:",skipNumber)
-		iter := dbNote.Find(bson.M{"user":user}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
-		if iter != nil{
-			panic("no notes found all")
+
+		fmt.Println("skipnumber:", skipNumber)
+		iter := dbNote.Find(bson.M{"user": user}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
+		if iter != nil {
+			fmt.Println("no notes found all")
 		}
-		count, err := dbNote.Find(bson.M{"user":user}).Count()
+		count, err := dbNote.Find(bson.M{"user": user}).Count()
 		if err != nil {
-		panic(err)
+			panic(err)
 		}
-		if count == 0{
+		if count == 0 {
+			fmt.Println("no notes found")
+		}
+
+	}
+	//if get notes by queryType date
+	if queryType == "date" {
+		iter := dbNote.Find(bson.M{"user": user, "whenmade": query}).All(&notes)
+		if iter == nil {
+			panic("no notes found date")
+		}
+		count, err := dbNote.Find(bson.M{"user": user, "whenmade": query}).Count()
+		if err != nil {
+			panic(err)
+		}
+		if count == 0 {
 			panic("no notes found")
 		}
 
-}
-	//if get notes by queryType date
-	if queryType == "date"{
-		iter:= dbNote.Find(bson.M{"user":user,"whenmade":query}).All(&notes)
-		if iter == nil{
-			panic("no notes found date")
-		}
-		count, err := dbNote.Find(bson.M{"user":user,"whenmade":query}).Count()
-		if err != nil {
-		panic(err)
-		}
-		if count == 0{
-			panic("no notes found")
-		}
-		
 	}
 
 	//if get notes by queryType tag
-	if queryType == "tag"{
-		iter:= dbNote.Find(bson.M{"user":user,"tag":query}).All(&notes)
-		if iter == nil{
+	if queryType == "tag" {
+		iter := dbNote.Find(bson.M{"user": user, "tag": query}).All(&notes)
+		if iter == nil {
 			panic("no notes found date")
 		}
-		count, err := dbNote.Find(bson.M{"user":user,"tag":query}).Count()
+		count, err := dbNote.Find(bson.M{"user": user, "tag": query}).Count()
 		if err != nil {
-		panic(err)
+			panic(err)
 		}
-		if count == 0{
+		if count == 0 {
 			panic("no notes found")
 		}
 
 	}
-	
+
 	//create key
 	var key [32]byte
-	copy(key[:],userKey)
+	copy(key[:], userKey)
 	decryptedNotes := make([]NoteData, count)
 
 	//decrypt each note found and append it decrypted to list to return.
-	for k, v := range notes{
+	for k, v := range notes {
 
 		//decode the encrypted note
 		decodedTitle, err := hex.DecodeString(v.Title)
@@ -132,125 +132,122 @@ func getNotes(dbNote *mgo.Collection,queryType string,user string,userKey []byte
 		boxTitle, ok := secretbox.Open(nil, decodedTitle[24:], &titleNonce, &key)
 		if !ok {
 			fmt.Println(err)
-			}
+		}
 
 		boxNote, ok := secretbox.Open(nil, decodedNote[24:], &noteNonce, &key)
 		if !ok {
 			fmt.Println(err)
-			}
+		}
 
 		//set decrypted values to insert into slice
 		decryptedNote := NoteData{
-		id:       v.id,
-		Uuid:     v.Uuid,
-		Title:    string(boxTitle),
-		Note:     string(boxNote),
-		NoteType: v.NoteType,
-		WhenMade: v.WhenMade,
-		User:     v.User,
-		Tags:     v.Tags,
+			id:       v.id,
+			Uuid:     v.Uuid,
+			Title:    string(boxTitle),
+			Note:     string(boxNote),
+			NoteType: v.NoteType,
+			WhenMade: v.WhenMade,
+			User:     v.User,
+			Tags:     v.Tags,
 		}
-
 
 		//append to splice
 		decryptedNotes = append(decryptedNotes[:k], decryptedNote)
 		if decryptedNotes == nil {
 			panic("cant append")
 		}
-		
+
 	}
 	return decryptedNotes
 
-
 }
 
-func getClientKey(c *gin.Context,sessionKey string) []byte{
-	keyInCookie,err := c.Request.Cookie("key")
-	if err != nil{
+func getClientKey(c *gin.Context, sessionKey string) []byte {
+	keyInCookie, err := c.Request.Cookie("key")
+	if err != nil {
 		panic(err)
 	}
 	keyVal, err := url.QueryUnescape(keyInCookie.Value)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 
 	encryptedKey, err := hex.DecodeString(keyVal)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 
 	var nonce [24]byte
-	copy(nonce[:],encryptedKey[:24])
+	copy(nonce[:], encryptedKey[:24])
 
-	key,err := hex.DecodeString(sessionKey)
-	if err != nil{
+	key, err := hex.DecodeString(sessionKey)
+	if err != nil {
 		panic(err)
 	}
 
 	var sessionkey [32]byte
-	copy(sessionkey[:],key)
-	clientKey, ok := secretbox.Open(nil,encryptedKey[24:],&nonce,&sessionkey)
-	if !ok{
+	copy(sessionkey[:], key)
+	clientKey, ok := secretbox.Open(nil, encryptedKey[24:], &nonce, &sessionkey)
+	if !ok {
 		panic(err)
 	}
 	return clientKey
 
 }
 
-func getSingleNote(dbNote *mgo.Collection,userKey []byte,uuid string,user string)(bool,NoteData){
-	
+func getSingleNote(dbNote *mgo.Collection, userKey []byte, uuid string, user string) (bool, NoteData) {
+
 	//append data to struct
 	result := NoteData{}
-	findNote := dbNote.Find(bson.M{"user":user,"uuid":uuid}).One(&result)
-	if findNote != nil{
+	findNote := dbNote.Find(bson.M{"user": user, "uuid": uuid}).One(&result)
+	if findNote != nil {
 		//if response not empty, means the user doesn't own the note.
-		return false,result
+		return false, result
 	}
+
 
 	//convert key
 	var key [32]byte
-	copy(key[:],userKey)
+	copy(key[:], userKey)
 
 	//generate empty nonces
 	var noteNonce [24]byte
 	var titleNonce [24]byte
 
-	
 	//decode note and title to decrypt
-	decodedNote,err := hex.DecodeString(result.Note)
-	if err != nil{
+	decodedNote, err := hex.DecodeString(result.Note)
+	if err != nil {
 		panic(err)
 	}
 
-	decodedTitle,err := hex.DecodeString(result.Title)
-	if err != nil{
+	decodedTitle, err := hex.DecodeString(result.Title)
+	if err != nil {
 		panic(err)
 	}
 
 	//copy nonces from box
-	copy(noteNonce[:],decodedNote[:24])
-	copy(titleNonce[:],decodedTitle[:24])
+	copy(noteNonce[:], decodedNote[:24])
+	copy(titleNonce[:], decodedTitle[:24])
 
 	//decrypt
-	noteBox, ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&key)
-	if !ok{
+	noteBox, ok := secretbox.Open(nil, decodedNote[24:], &noteNonce, &key)
+	if !ok {
 		panic(err)
 	}
 
-	titleBox, ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&key)
-	if !ok{
+	titleBox, ok := secretbox.Open(nil, decodedTitle[24:], &titleNonce, &key)
+	if !ok {
 		panic(err)
 	}
 	result.Note = string(noteBox)
 	result.Title = string(titleBox)
-	return true,result
-
+	return true, result
 
 }
 
-func addNote(dbNote *mgo.Collection,userKey []byte,noteType string,user string,tags string,note string,title string) bool{	
+func addNote(dbNote *mgo.Collection, userKey []byte, noteType string, user string, tags string, note string, title string) bool {
 	var key [32]byte
-	copy(key[:],userKey)
+	copy(key[:], userKey)
 
 	var titleNonce [24]byte
 	var noteNonce [24]byte
@@ -260,7 +257,7 @@ func addNote(dbNote *mgo.Collection,userKey []byte,noteType string,user string,t
 	if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
 		fmt.Println("err making notenonce")
 	}
-	
+
 	t := time.Now()
 	whenMade := t.Format("2006-01-02")
 
@@ -281,10 +278,8 @@ func addNote(dbNote *mgo.Collection,userKey []byte,noteType string,user string,t
 	})
 	return true
 
-
-
 }
-	
+
 type PostNoteData struct {
 	id       bson.ObjectId `bson:_id,omitempty`
 	Uuid     string
@@ -297,9 +292,9 @@ type PostNoteData struct {
 }
 
 type QueryParam struct {
-	QueryType  string `json"querytype" binding="required"`
-	User  string `json"user" binding="required"`
-	Query string `json"query" binding="required"`
+	QueryType string `json"querytype" binding="required"`
+	User      string `json"user" binding="required"`
+	Query     string `json"query" binding="required"`
 }
 
 type LoginData struct {
@@ -338,7 +333,6 @@ type UserData struct {
 	StartDate string
 	EndDate   string
 }
-
 
 func main() {
 	mongoUrl, err := ioutil.ReadFile("private.txt")
@@ -447,11 +441,11 @@ func main() {
 						}
 
 						//encrypt userKey with sessionKey
-						userKey,err := hex.DecodeString(data.Key)
-						if err != nil{
+						userKey, err := hex.DecodeString(data.Key)
+						if err != nil {
 							panic(err)
 						}
-						encryptedKey := secretbox.Seal(nonce[:],userKey, &nonce, &sessionKey)
+						encryptedKey := secretbox.Seal(nonce[:], userKey, &nonce, &sessionKey)
 
 						//set session data
 						postKey := hex.EncodeToString(key)
@@ -516,16 +510,16 @@ func main() {
 
 		//view all notes
 		route.GET("/view_notes/:pagenum", func(c *gin.Context) {
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
-			}else {
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
+			} else {
 
 				//session exists
 
@@ -537,9 +531,9 @@ func main() {
 
 				//get page number before querying
 				urlParam := c.Param("pagenum") + "0"
-				clientkey := getClientKey(c,dict["sessionKey"])
-				decryptedNotes := getNotes(dbNote,"all",dict["user"],clientkey,urlParam)
-				
+				clientkey := getClientKey(c, dict["sessionKey"])
+				decryptedNotes := getNotes(dbNote, "all", dict["user"], clientkey, urlParam)
+
 				c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
 					"notes":   decryptedNotes,
 					"user":    dict["user"],
@@ -551,15 +545,15 @@ func main() {
 
 		//add note
 		route.GET("/add_note/:notetype", func(c *gin.Context) {
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
 			} else {
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
@@ -568,7 +562,7 @@ func main() {
 				noteType := c.Param("notetype")
 				if noteType == "text" {
 					c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
-						"user":  dict["user"],
+						"user": dict["user"],
 					})
 				}
 				if noteType == "audio" {
@@ -581,28 +575,28 @@ func main() {
 
 		route.POST("/add_note", func(c *gin.Context) {
 			//get ID
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
 			} else {
-			
+
 				var note PostNoteData
 				c.BindJSON(&note)
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
-				clientkey := getClientKey(c,dict["sessionKey"])
+				clientkey := getClientKey(c, dict["sessionKey"])
 
 				//add note
-				response := addNote(dbNote,clientkey,note.NoteType,dict["user"],note.Tags,note.Note,note.Title)
-				if response != true{
+				response := addNote(dbNote, clientkey, note.NoteType, dict["user"], note.Tags, note.Note, note.Title)
+				if response != true {
 					panic("cant add note")
 				}
 				c.JSON(200, gin.H{
@@ -613,16 +607,16 @@ func main() {
 		})
 
 		//edit Note
-		route.GET("/edit_note/:user/:noteuuid", func(c *gin.Context){
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+		route.GET("/edit_note/:user/:noteuuid", func(c *gin.Context) {
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
 			} else {
 
 				//get URL params
@@ -633,36 +627,151 @@ func main() {
 				if err != nil {
 					panic(err)
 				}
-				clientkey := getClientKey(c,dict["sessionKey"])
+				clientkey := getClientKey(c, dict["sessionKey"])
 
-				response,result := getSingleNote(dbNote,clientkey,noteuuid,user)
-				if response == false{
-					c.JSON(403,gin.H{
-						"status":"unauthorized,fuck_off",
-						})
+				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
+				if response == false {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
 				}
 
-			c.HTML(http.StatusOK, "edit_note_text.tmpl", gin.H{
-						"note":result,
-					})
+				c.HTML(http.StatusOK, "edit_note_text.tmpl", gin.H{
+					"note": result,
+					"user":dict["user"],
+				})
 			}
-			})
+		})
 
-		route.POST("/edit_note/:user/:noteuuid", func(c *gin.Context){
+		route.POST("/edit_note/:user/:noteuuid", func(c *gin.Context) {
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
+			} else {
 
-			})
+				//get URL params
+				user := c.Param("user")
+				noteuuid := c.Param("noteuuid")
+
+				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				if err != nil {
+					panic(err)
+				}
+				clientkey := getClientKey(c, dict["sessionKey"])
+
+				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
+
+	
+
+				if response == false {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+
+					var data PostNoteData
+					c.BindJSON(&data)
+					//set data to compare
+					setData := NoteData{
+						Uuid:     result.Uuid,
+						Title:    result.Title,
+						Note:     result.Note,
+						User:     result.User,
+						NoteType: result.NoteType,
+						Tags:     result.Tags,
+						WhenMade: result.WhenMade,
+					}
+
+					//get encrypted data to set if not change
+					var encryptedData NoteData
+					findNote := dbNote.Find(bson.M{"user": user, "uuid": noteuuid}).One(&encryptedData)
+					if findNote != nil {
+					panic("cant get note")
+					}
+				
+					//set key
+					var key [32]byte
+					copy(key[:], clientkey)
+					//compare Title
+					if setData.Title != data.Title {
+						//encrypt and change value
+
+						//generate Nonce
+						var titleNonce [24]byte
+						if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
+							fmt.Println("err making titlenonce")
+						}
+
+						//encrypt
+						title := []byte(data.Title)
+						encryptedTitle := secretbox.Seal(titleNonce[:], title, &titleNonce, &key)
+						hexTitle := hex.EncodeToString(encryptedTitle)
+						setData.Title = hexTitle
+
+					} else{
+						setData.Title = encryptedData.Title
+					}
+
+					//compare Note
+					if setData.Note != data.Note {
+						//encrypt and change value
+
+						//generate Nonce
+						var noteNonce [24]byte
+						if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
+							fmt.Println("err making notenonce")
+						}
+
+						//encrypt
+						note := []byte(data.Note)
+						encryptedNote := secretbox.Seal(noteNonce[:], note, &noteNonce, &key)
+						hexNote := hex.EncodeToString(encryptedNote)
+						setData.Note = hexNote
+
+					} else{
+						setData.Note = encryptedData.Note
+					}
+					
+
+					//compare Tags
+					if setData.Tags != data.Tags {
+						//change value
+						setData.Tags = data.Tags
+					} 
+
+					//update
+					query := bson.M{"uuid": setData.Uuid}
+					changeData := bson.M{"note":setData.Note,"title":setData.Title,"tags":setData.Tags,"uuid":setData.Uuid,"whenmade":setData.WhenMade,"user":setData.User,"notetype":setData.NoteType}
+					err = dbNote.Update(query, changeData)
+					if err != nil {
+						panic(err)
+					} else {
+						c.JSON(200, gin.H{
+							"response": "succ",
+						})
+					}
+
+				}
+			}
+		})
 
 		//view single note
 		route.GET("/view_note/:user/:noteuuid", func(c *gin.Context) {
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
 			} else {
 
 				//get URL params
@@ -673,13 +782,13 @@ func main() {
 				if err != nil {
 					panic(err)
 				}
-				clientkey := getClientKey(c,dict["sessionKey"])
+				clientkey := getClientKey(c, dict["sessionKey"])
 
-				response,result := getSingleNote(dbNote,clientkey,noteuuid,user)
-				if response == false{
-					c.JSON(403,gin.H{
-						"status":"unauthorized,fuck_off",
-						})
+				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
+				if response == false {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
 				}
 				c.JSON(200, gin.H{
 					"note": result,
@@ -695,16 +804,16 @@ func main() {
 			c.BindJSON(&query)
 			fmt.Println(query)
 
-			check,idCookieVal := checkSession(c,redisSession)
-			if check != true{
-				if idCookieVal != "err"{
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
 					c.JSON(403, gin.H{
-					"status": "unauthorized,fuck_off",
-				})
-					} else{
-						panic("check session err")
-					}	
-			} else  {
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
+			} else {
 
 				//session exists
 
@@ -719,7 +828,7 @@ func main() {
 				}
 				if query.QueryType == "tag" {
 					//search by tag
-					
+
 				}
 				c.JSON(200, gin.H{
 					"type": query.QueryType,

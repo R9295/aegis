@@ -1,9 +1,18 @@
-add End-date
-Change formatting of the title(view_notes), reduce to limited characters.
-Add query options for view_notes: type, etc 
-fix vars with _ JS
-Add update/delete notes.
-add Starred
-Add version Control for edit_notes(release 2)
-Add Audio Note (release 3 or 4)
-Add WhiteBoard note(release 3 or4)
+									TODO 
+
+								--- BUGS ---
+
+1. Previous Page button not working.
+2. End Date needs to be integrated properly
+3.Note Titles on view_notes are too big, shorten them like notes are shortened. 
+
+
+
+							--- FEATURES TO ADD ---
+
+1.Version control for edited notes
+2.Audio Note
+3.WhiteBoard	
+4.Update and Delete Notes
+5.Add Starred Notes
+6.Add Query options and Search functionality
