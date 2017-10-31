@@ -4,5 +4,6 @@ Add query options for view_notes: type, etc
 fix vars with _ JS
 Add update/delete notes.
 add Starred
-
-
+Add version Control for edit_notes(release 2)
+Add Audio Note (release 3 or 4)
+Add WhiteBoard note(release 3 or4)

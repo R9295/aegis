@@ -55,6 +55,7 @@
  <div class="uk-card-badge uk-label">{{$note.NoteType}}</div>
     <div class="uk-card-header">
     {{$note.Title}}
+    <a href="/edit_note/{{$note.User}}/{{$note.Uuid}}">edit</a>
     </div>
     <div class="uk-card-body" id="{{$note.Uuid}}_{{$note.NoteType}}" style="height: 150px;">
         

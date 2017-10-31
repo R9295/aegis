@@ -248,6 +248,54 @@ func getSingleNote(dbNote *mgo.Collection,userKey []byte,uuid string,user string
 
 }
 
+func addNote(dbNote *mgo.Collection,userKey []byte,noteType string,user string,tags string,note string,title string) bool{	
+	var key [32]byte
+	copy(key[:],userKey)
+
+	var titleNonce [24]byte
+	var noteNonce [24]byte
+	if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
+		fmt.Println("err making titlenonce")
+	}
+	if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
+		fmt.Println("err making notenonce")
+	}
+	
+	t := time.Now()
+	whenMade := t.Format("2006-01-02")
+
+	//encrypt
+	encryptedTitle := secretbox.Seal(titleNonce[:], []byte(title), &titleNonce, &key)
+	encryptedNote := secretbox.Seal(noteNonce[:], []byte(note), &noteNonce, &key)
+	hexTitle := hex.EncodeToString(encryptedTitle)
+	hexNote := hex.EncodeToString(encryptedNote)
+	//store
+	dbNote.Insert(NoteData{
+		Uuid:     xid.New().String(),
+		Title:    hexTitle,
+		Note:     hexNote,
+		WhenMade: whenMade,
+		User:     user,
+		NoteType: noteType,
+		Tags:     tags,
+	})
+	return true
+
+
+
+}
+	
+type PostNoteData struct {
+	id       bson.ObjectId `bson:_id,omitempty`
+	Uuid     string
+	Title    string `json:"title" binding:"required"`
+	Note     string `json:"note" binding:"required"`
+	NoteType string `json:"type" binding:"required"`
+	WhenMade string
+	User     string
+	Tags     string `json:"tag" binding:"required"`
+}
+
 type QueryParam struct {
 	QueryType  string `json"querytype" binding="required"`
 	User  string `json"user" binding="required"`
@@ -543,18 +591,8 @@ func main() {
 						panic("check session err")
 					}	
 			} else {
-				//session exists.
-				type NoteData struct {
-					id       bson.ObjectId `bson:_id,omitempty`
-					Uuid     string
-					Title    string `json:"title" binding:"required"`
-					Note     string `json:"note" binding:"required"`
-					NoteType string `json:"type" binding:"required"`
-					WhenMade string
-					User     string
-					Tags     string `json:"tag" binding:"required"`
-				}
-				var note NoteData
+			
+				var note PostNoteData
 				c.BindJSON(&note)
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
@@ -562,38 +600,11 @@ func main() {
 				}
 				clientkey := getClientKey(c,dict["sessionKey"])
 
-				//convert client key into [32]byte
-				var clientKey [32]byte
-				copy(clientKey[:], clientkey)
-
-				//generate nonces
-				var titleNonce [24]byte
-				var noteNonce [24]byte
-				if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
-					fmt.Println("err making titlenonce")
+				//add note
+				response := addNote(dbNote,clientkey,note.NoteType,dict["user"],note.Tags,note.Note,note.Title)
+				if response != true{
+					panic("cant add note")
 				}
-				if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
-					fmt.Println("err making notenonce")
-				}
-				t := time.Now()
-				whenMade := t.Format("2006-01-02")
-
-				//encrypt
-				encryptedTitle := secretbox.Seal(titleNonce[:], []byte(note.Title), &titleNonce, &clientKey)
-				encryptedNote := secretbox.Seal(noteNonce[:], []byte(note.Note), &noteNonce, &clientKey)
-				hexTitle := hex.EncodeToString(encryptedTitle)
-				hexNote := hex.EncodeToString(encryptedNote)
-				//store
-				dbNote.Insert(NoteData{
-					Uuid:     xid.New().String(),
-					Title:    hexTitle,
-					Note:     hexNote,
-					WhenMade: whenMade,
-					User:     dict["user"],
-					NoteType: note.NoteType,
-					Tags:     note.Tags,
-				})
-
 				c.JSON(200, gin.H{
 					"response": "succ",
 				})
@@ -617,9 +628,22 @@ func main() {
 				//get URL params
 				user := c.Param("user")
 				noteuuid := c.Param("noteuuid")
-			c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
-						"user":user,
-						"noteuuid":noteuuid,
+
+				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				if err != nil {
+					panic(err)
+				}
+				clientkey := getClientKey(c,dict["sessionKey"])
+
+				response,result := getSingleNote(dbNote,clientkey,noteuuid,user)
+				if response == false{
+					c.JSON(403,gin.H{
+						"status":"unauthorized,fuck_off",
+						})
+				}
+
+			c.HTML(http.StatusOK, "edit_note_text.tmpl", gin.H{
+						"note":result,
 					})
 			}
 			})
