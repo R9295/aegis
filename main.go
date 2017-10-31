@@ -109,7 +109,7 @@ func getNotes(dbNote *mgo.Collection,queryType string,user string,userKey []byte
 	copy(key[:],userKey)
 	decryptedNotes := make([]NoteData, count)
 
-
+	//decrypt each note found and append it decrypted to list to return.
 	for k, v := range notes{
 
 		//decode the encrypted note
@@ -197,6 +197,56 @@ func getClientKey(c *gin.Context,sessionKey string) []byte{
 
 }
 
+func getSingleNote(dbNote *mgo.Collection,userKey []byte,uuid string,user string)(bool,NoteData){
+	
+	//append data to struct
+	result := NoteData{}
+	findNote := dbNote.Find(bson.M{"user":user,"uuid":uuid}).One(&result)
+	if findNote != nil{
+		//if response not empty, means the user doesn't own the note.
+		return false,result
+	}
+
+	//convert key
+	var key [32]byte
+	copy(key[:],userKey)
+
+	//generate empty nonces
+	var noteNonce [24]byte
+	var titleNonce [24]byte
+
+	
+	//decode note and title to decrypt
+	decodedNote,err := hex.DecodeString(result.Note)
+	if err != nil{
+		panic(err)
+	}
+
+	decodedTitle,err := hex.DecodeString(result.Title)
+	if err != nil{
+		panic(err)
+	}
+
+	//copy nonces from box
+	copy(noteNonce[:],decodedNote[:24])
+	copy(titleNonce[:],decodedTitle[:24])
+
+	//decrypt
+	noteBox, ok := secretbox.Open(nil,decodedNote[24:],&noteNonce,&key)
+	if !ok{
+		panic(err)
+	}
+
+	titleBox, ok := secretbox.Open(nil,decodedTitle[24:],&titleNonce,&key)
+	if !ok{
+		panic(err)
+	}
+	result.Note = string(noteBox)
+	result.Title = string(titleBox)
+	return true,result
+
+
+}
 
 type QueryParam struct {
 	QueryType  string `json"querytype" binding="required"`
@@ -551,8 +601,8 @@ func main() {
 			}
 		})
 
-		//view single note
-		route.GET("/view_note/:useremail/:noteuuid", func(c *gin.Context) {
+		//edit Note
+		route.GET("/edit_note/:user/:noteuuid", func(c *gin.Context){
 			check,idCookieVal := checkSession(c,redisSession)
 			if check != true{
 				if idCookieVal != "err"{
@@ -565,59 +615,48 @@ func main() {
 			} else {
 
 				//get URL params
-				user := c.Param("useremail")
+				user := c.Param("user")
+				noteuuid := c.Param("noteuuid")
+			c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
+						"user":user,
+						"noteuuid":noteuuid,
+					})
+			}
+			})
+
+		route.POST("/edit_note/:user/:noteuuid", func(c *gin.Context){
+
+			})
+
+		//view single note
+		route.GET("/view_note/:user/:noteuuid", func(c *gin.Context) {
+			check,idCookieVal := checkSession(c,redisSession)
+			if check != true{
+				if idCookieVal != "err"{
+					c.JSON(403, gin.H{
+					"status": "unauthorized,fuck_off",
+				})
+					} else{
+						panic("check session err")
+					}	
+			} else {
+
+				//get URL params
+				user := c.Param("user")
 				noteuuid := c.Param("noteuuid")
 
-				//query info and add result to dict
-				result := NoteData{}
-				err := dbNote.Find(bson.M{"user": user, "uuid": noteuuid}).One(&result)
-				if err != nil {
-					//if note wasn't found:
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				}				
 				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
 				clientkey := getClientKey(c,dict["sessionKey"])
 
-				//convert client key into [32]byte
-				var clientKey [32]byte
-				copy(clientKey[:], clientkey)
-
-				//generate empty nonces
-				var noteNonce [24]byte
-				var titleNonce [24]byte
-
-				//decode the note
-				decodedNote, err := hex.DecodeString(result.Note)
-				if err != nil {
-					panic(err)
+				response,result := getSingleNote(dbNote,clientkey,noteuuid,user)
+				if response == false{
+					c.JSON(403,gin.H{
+						"status":"unauthorized,fuck_off",
+						})
 				}
-
-				decodedTitle, err := hex.DecodeString(result.Title)
-				if err != nil {
-					panic(err)
-				}
-
-				//copy the nonces from first 24 bytes of ciphertext
-				copy(noteNonce[:], decodedNote)
-				copy(titleNonce[:], decodedTitle)
-
-				//decrypt
-				noteBox, ok := secretbox.Open(nil, decodedNote[24:], &noteNonce, &clientKey)
-				if !ok {
-					fmt.Println(err)
-				}
-				titleBox, ok := secretbox.Open(nil, decodedTitle[24:], &titleNonce, &clientKey)
-				if !ok {
-					fmt.Println(err)
-				}
-				result.Note = string(noteBox)
-				result.Title = string(titleBox)
-
 				c.JSON(200, gin.H{
 					"note": result,
 				})
