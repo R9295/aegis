@@ -16,3 +16,7 @@
 4.Update and Delete Notes
 5.Add Starred Notes
 6.Add Query options and Search functionality
+
+
+						--- WORKING ON ---
+1. Add delete() function to delete note on edit_note_text.tmpl

@@ -761,6 +761,53 @@ func main() {
 			}
 		})
 
+		route.GET("/deletenote/:user/:noteuuid", func(c * gin.Context) {
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
+			} else {
+
+				//get URL params
+				user := c.Param("user")
+				noteuuid := c.Param("noteuuid")
+
+				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				if err != nil {
+					panic(err)
+				}
+
+				clientkey := getClientKey(c, dict["sessionKey"])
+				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
+				if response == false {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+				err = dbNote.Remove(bson.M{
+					"user":result.User,
+					"uuid":result.Uuid,
+					})
+			
+				}
+				if err != nil{
+					panic(err)
+				} else{
+					c.JSON(200, gin.H{
+						"response":"succ",
+						})
+				}
+
+
+			
+		}
+		})
+
 		//view single note
 		route.GET("/view_note/:user/:noteuuid", func(c *gin.Context) {
 			check, idCookieVal := checkSession(c, redisSession)
