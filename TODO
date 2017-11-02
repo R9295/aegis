@@ -2,10 +2,10 @@
 
 								--- BUGS ---
 
-1. Previous Page button not working.
+1. Previous Page button not working
 2. End Date needs to be integrated properly
-3.Note Titles on view_notes are too big, shorten them like notes are shortened. 
-
+3.Note Titles on view_notes are too big, shorten them like notes are shortened
+4.Discard button needs to work
 
 
 							--- FEATURES TO ADD ---
@@ -19,4 +19,4 @@
 
 
 						--- WORKING ON ---
-1. Add delete() function to delete note on edit_note_text.tmpl
+Fix view_notes with search route.

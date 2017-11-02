@@ -8,8 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.7.5/showdown.min.js"></script>
 
   <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/css/uikit.min.css'>
-      <link rel="stylesheet" type="text/css" href="../static/css/common.css">
-      <link rel="stylesheet" type="text/css" href="../static/css/view_notes.css">
+      <link rel="stylesheet" type="text/css" href="/static/css/common.css">
+      <link rel="stylesheet" type="text/css" href="/static/css/view_notes.css">
 
   
   
@@ -197,26 +197,14 @@ UIkit.modal("#modal-container");
 function search(){
   query = $("#query").val()
   queryType = $("#querytype").val()
-  data ={}
-  data['query'] = query
-  data['querytype'] = queryType
-  data['user'] = "{{.user}}"
-  console.log(JSON.stringify(data))
-
-  
-      $.ajax({
-        type: "POST",
-        url: "/search_notes",
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        dataType: 'json',
-        success: function success(data){
-      console.log(data.type)
-        },
-
-      });
-
+  if (queryType == "tags"){
+ window.location = "/view_notes/0/"+queryType+"/"+query
 }
+if (queryType == "date"){
+  
+}
+}
+
 </script>
 </body>  
 </html>

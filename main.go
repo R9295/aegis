@@ -48,12 +48,12 @@ func checkSession(c *gin.Context, client *redis.Client) (bool, string) {
 	return true, idCookieVal
 }
 
-func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []byte, query string) []NoteData {
+func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []byte, query string,pagenum string) []NoteData {
 	var notes []NoteData
 	var count int
 	//if get all notes
 	if queryType == "all" {
-		skipNumber, err := strconv.Atoi(query)
+		skipNumber, err := strconv.Atoi(pagenum)
 		if err != nil {
 			panic(err)
 		}
@@ -74,27 +74,37 @@ func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []b
 	}
 	//if get notes by queryType date
 	if queryType == "date" {
-		iter := dbNote.Find(bson.M{"user": user, "whenmade": query}).All(&notes)
-		if iter == nil {
-			panic("no notes found date")
+		skipNumber, err := strconv.Atoi(pagenum)
+		if err != nil {
+			panic(err)
 		}
 		count, err := dbNote.Find(bson.M{"user": user, "whenmade": query}).Count()
 		if err != nil {
 			panic(err)
 		}
+		iter := dbNote.Find(bson.M{"user": user, "whenmade": query}).Skip(skipNumber).Limit(10).All(&notes)
+		if iter == nil {
+			panic("no notes found date")
+		}
+		
 		if count == 0 {
 			panic("no notes found")
 		}
 
 	}
 
-	//if get notes by queryType tag
-	if queryType == "tag" {
-		iter := dbNote.Find(bson.M{"user": user, "tag": query}).All(&notes)
-		if iter == nil {
-			panic("no notes found date")
+	//if get notes by queryType tags
+	if queryType == "tags" {
+		skipNumber, err := strconv.Atoi(pagenum)
+		if err != nil {
+			panic(err)
 		}
-		count, err := dbNote.Find(bson.M{"user": user, "tag": query}).Count()
+		fmt.Println("TAGS")
+		iter := dbNote.Find(bson.M{"user": user, "tags": query}).Skip(skipNumber).Limit(10).Sort("-$natural").All(&notes)
+		if iter != nil {
+			panic("no notes found tag")
+		}
+		count, err := dbNote.Find(bson.M{"user": user, "tags": query}).Count()
 		if err != nil {
 			panic(err)
 		}
@@ -532,13 +542,14 @@ func main() {
 				//get page number before querying
 				urlParam := c.Param("pagenum") + "0"
 				clientkey := getClientKey(c, dict["sessionKey"])
-				decryptedNotes := getNotes(dbNote, "all", dict["user"], clientkey, urlParam)
+				decryptedNotes := getNotes(dbNote,"all",dict["user"],clientkey,"empty",urlParam)
 
 				c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
 					"notes":   decryptedNotes,
 					"user":    dict["user"],
 					"pagenum": c.Param("pagenum"),
 				})
+
 
 			}
 		})
@@ -844,13 +855,7 @@ func main() {
 			}
 		})
 
-		//Search by title.
-		route.POST("/search_notes", func(c *gin.Context) {
-			//bind data
-			var query QueryParam
-			c.BindJSON(&query)
-			fmt.Println(query)
-
+		route.GET("/view_notes/:pagenum/:querytype/:query", func(c *gin.Context) {
 			check, idCookieVal := checkSession(c, redisSession)
 			if check != true {
 				if idCookieVal != "err" {
@@ -861,28 +866,39 @@ func main() {
 					panic("check session err")
 				}
 			} else {
-
+				//get URL params
+				pagenum := c.Param("pagenum")
+				querytype := c.Param("querytype")
+				query := c.Param("query")
+				urlParam := pagenum + "0"
 				//session exists
 
 				//get user
-				//dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
+				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
 				if err != nil {
 					panic(err)
 				}
+				clientkey := getClientKey(c, dict["sessionKey"])
 
-				if query.QueryType == "date" {
+
+				if querytype == "date" {
 					//search by date
 				}
-				if query.QueryType == "tag" {
-					//search by tag
-
-				}
-				c.JSON(200, gin.H{
-					"type": query.QueryType,
+				if querytype == "tags" {
+					results := getNotes(dbNote,"tags",dict["user"],clientkey,query,urlParam)
+					c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
+					"notes":   results,
+					"user":    dict["user"],
+					"pagenum": pagenum,
 				})
-
+				}
+				
+				
 			}
+			
 		})
+
+
 		route.GET("/logout", func(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"get outta": "here",
