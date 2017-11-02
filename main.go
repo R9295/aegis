@@ -83,7 +83,7 @@ func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []b
 			panic(err)
 		}
 		iter := dbNote.Find(bson.M{"user": user, "whenmade": query}).Skip(skipNumber).Limit(10).All(&notes)
-		if iter == nil {
+		if iter != nil {
 			panic("no notes found date")
 		}
 		
@@ -883,6 +883,18 @@ func main() {
 
 				if querytype == "date" {
 					//search by date
+
+					//format data sent
+					year := query[0:4]
+					month := query[4:6]
+					day := query[6:8]
+					query = year+"-"+month+"-"+day
+					results := getNotes(dbNote,"date",dict["user"],clientkey,query,urlParam)
+					c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
+					"notes":   results,
+					"user":    dict["user"],
+					"pagenum": pagenum,
+				})
 				}
 				if querytype == "tags" {
 					results := getNotes(dbNote,"tags",dict["user"],clientkey,query,urlParam)

@@ -197,11 +197,19 @@ UIkit.modal("#modal-container");
 function search(){
   query = $("#query").val()
   queryType = $("#querytype").val()
-  if (queryType == "tags"){
+if (queryType == "tags"){
  window.location = "/view_notes/0/"+queryType+"/"+query
 }
 if (queryType == "date"){
-  
+  for (var i = 0, len = query.length; i < len; i++) {
+  if(query[i] == "/"){
+    query = query.replace("/","")
+  }
+   window.location = "/view_notes/0/"+queryType+"/"+query
+
+
+}
+
 }
 }
 
