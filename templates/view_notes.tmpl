@@ -129,8 +129,7 @@ $("#next").on('click', function(){
 //Previous Page
 $("#previous").on('click', function(){
   previous_page = parseInt({{.pagenum}})-1
-  //window.location= "/view_notes/"+previous_page
-  console.log({{.pagenum}})
+  window.location= "/view_notes/"+previous_page
 })
 
 

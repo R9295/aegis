@@ -341,7 +341,7 @@ type UserData struct {
 	AccType   string        `json:"acc_type" binding:"required"`
 	KeyHash   string        `json:"key_hash" binding:"required"`
 	StartDate string
-	EndDate   string
+	EndDate   string        `json:"end_date" binding:"required"`
 }
 
 func main() {
@@ -514,7 +514,7 @@ func main() {
 				AccType:   data.AccType,
 				KeyHash:   data.KeyHash,
 				StartDate: StartDate,
-				EndDate:   "ASD",
+				EndDate:   data.EndDate,
 			})
 		})
 
@@ -919,7 +919,7 @@ func main() {
 
 		route.GET("/pricing", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "pricing.tmpl", gin.H{
-				"None": "None",
+				
 			})
 
 		})

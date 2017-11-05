@@ -43,11 +43,25 @@
 
 <br>
  <select class="uk-select uk-form-width-small" id="acc_type" name="account_type">
-   <option selected>Standard</option>
-   <option value="standard_plus">Standard+</option>
+   <option selected value="free">Free</option>
    <option value="premium">Premium</option>
  </select>
+<br>
 
+ <select class="uk-select uk-form-width-small" id="months" name="account_type">
+   <option selected>1</option>
+   <option>2</option>
+   <option>3</option>
+   <option>4</option>
+   <option>5</option>
+   <option>6</option>
+   <option>7</option>
+   <option>8</option>
+   <option>9</option>
+   <option>10</option>
+   <option>11</option>
+   <option>12</option>
+ </select>
 <br>
   <button type="submit" class="uk-button uk-button-primary" onclick="post()">Submit</button>
 </div>
@@ -62,10 +76,20 @@
 
 
     <script>
-    $("#private_key").hide()
+      $("#months").hide()
+
+    $("#acc_type").change(function(){
+      if ($("#acc_type").val() != 'free'){
+      $("#months").show()
+      }
+      else{
+      $("#months").hide()
+      }
+    
+    })
         
     function verify_match(){
-      console.log('asd')
+      console.log('password match?')
     }
 
     function post(){
@@ -74,7 +98,27 @@
     post_data['email'] = $("#email").val()
     post_data['password'] = $("#password").val()
     post_data['acc_type'] = $("#acc_type").val()
-   
+    
+    //if not free get end date. 
+    if (post_data['acc_type'] != 'free'){
+      
+      //set date
+      endDate = new Date()
+      endDate.setMonth(endDate.getMonth()+parseInt($("#months").val()))
+      
+      //add one more day, as signup day is not counted.
+      dd = endDate.getDate()+1
+
+      //add one to month as January is 0
+      mm = endDate.getMonth()+1
+      yyyy = endDate.getFullYear()
+      
+      endDate = yyyy+'-'+mm+"-"+dd
+      post_data['end_date'] = endDate
+    }
+    else{
+      post_data['end_date'] = 'free'
+    }
 
     key = {};
     key['need'] = 'True'
@@ -120,7 +164,6 @@
 
         //after keys have been encoded and set for download,post data
         //TODO: post only if downloaded
-        console.log(post_data)
 
         $.ajax({
         type: "POST",

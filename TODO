@@ -1,13 +1,12 @@
 									TODO 
 
-								--- BUGS ---
+								--- BUGS/CHANGES NEEDED ---
 
-1. Previous Page button not working
 2. End Date needs to be integrated properly
 3.Note Titles on view_notes are too big, shorten them like notes are shortened
 4.Discard button needs to work
-
-
+5. DL img with encoded key after signup data has been inserted, not before.
+6. Remove "need key" message in post request to getKey 
 							--- FEATURES TO ADD ---
 
 1.Version control for edited notes
@@ -19,4 +18,3 @@
 
 
 						--- WORKING ON ---
-Fix view_notes with search route.
