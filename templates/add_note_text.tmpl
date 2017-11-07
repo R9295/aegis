@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Add Note  |  name_of_user</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+
+      <link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/css/uikit.min.css'>
+    <link href="../static/css/add_note.css" type="text/css" rel="stylesheet">
+    <link href="../static/css/common.css" type="text/css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.css">
+  </head>
+  <body>
+  <!--nav inspired by  https://codepen.io/antoinevinial/pen/lnwyC-->
+  <header>
+      
+      <ul class="nav uk-list" >
+          <div style="padding-top: 5px;"></div>
+          <li><a href="#">{{.user}}@Aegis</a></li>
+          <li><a href="/view_notes/0">Home</a></li>
+          <li><a href="#" onclick="selectNote()">Add Note</a></li>
+          <li><a href="/settings">Settings</a></li>
+          <li><a href="/logout">Logout</a></li>
+      </ul>
+               <button class="toggle-nav">
+          <span>></span>
+
+
+      </button>
+  </header>
+        
+    
+    
+    <br><br>
+      
+    <div class="uk-container uk-container-small">
+      
+    
+    <div align="center">
+      <label for="name">Title</label>
+      <input type="text" id="name" class="uk-input uk-form-width-large">
+      <br>
+      <br>
+      Tag:<input class="uk-input uk-form-width-medium" type="text" placeholder="None" id="tag">
+
+    </div>
+    <br><br>
+    <div>
+     
+    
+    <button class="uk-button uk-button-default">Text</button>
+    <br><br>
+
+    
+
+     <div id="input_div">
+        <br><br>
+       <textarea name="" rows="15" id="input"></textarea>
+      </div> 
+
+      </div>
+
+
+
+     
+    </div>
+    <div align="right">
+    <br><br>
+      <br><br>
+
+    
+    <button class="uk-button uk-button-primary" onclick="post_data()">Save</button>
+    <button class="uk-button uk-button-default" onclick="discard()">Discard</button>
+    </div>
+    <br><br>
+    </div>
+<div id="choose_note" uk-modal>
+    <div class="uk-modal-dialog uk-modal-body">
+        <button class="uk-modal-close-default" type="button" uk-close></button>
+        <h2 class="uk-modal-title" align="center">Choose Note Type</h2>
+        <div align="center">
+        <a href="/add_note/text"><button class="uk-button uk-button-primary">Text</button></a>
+        <a href="/add_note/audio"><button class="uk-button uk-button-secondary">Audio</button></a>
+        
+        </div>
+    </div>
+</div>
+
+<div id="discard" uk-modal>
+    <div class="uk-modal-dialog uk-modal-body">
+        <button class="uk-modal-close-default" type="button" uk-close></button>
+        <h2 class="uk-modal-title" align="center">Are you sure?</h2>
+        <div align="center">
+        <a href="/view_notes/0"><button class="uk-button uk-button-danger">Yes</button></a>
+        <a href="#"><button class="uk-button uk-button-primary" onclick="dontdiscard()">No</button></a>
+        
+        </div>
+    </div>
+</div>
+
+    
+
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/uikit/3.0.0-beta.30/js/uikit-icons.min.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.3/js.cookie.min.js"></script>
+  <script>
+  function discard(){
+  UIkit.modal("#discard ").show()
+
+  }
+
+  function dontdiscard(){
+  UIkit.modal("#discard").hide()
+
+  }
+  function selectNote(){
+  UIkit.modal("#choose_note").show()
+}
+
+  $(document).ready(function(){
+      UIkit.modal("#choose_note");
+      UIkit.modal("#discard");
+
+    var header = $('header'),
+            btn    = $('button.toggle-nav');
+
+    btn.on('click', function(){
+        header.toggleClass('active');
+    });
+
+});
+
+var simplemde = new SimpleMDE({
+  element: document.getElementById("input"),
+  spellChecker:false
+});
+ 
+//Gathering form data, and posting
+function post_data(){
+  //set post data
+      var data ={}
+      data['note'] = simplemde.value()
+      data['title'] = $("#name").val()
+      data['type'] = 'text'
+      if ($("#tag").val() == ''){
+        data['tag'] = 'None'
+              }
+      if ($("#tag").val() != ''){
+        data['tag'] = $("#tag").val()
+      }
+      
+        $.ajax({
+        type: "POST",
+        url: "/add_note",
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        dataType: 'json',
+        success: function success(data){
+        UIkit.notification("<span uk-icon='icon: check'></span> Successfully added note");
+         }
+      })
+}
+
+
+</script>
+  </body>
+</html>
