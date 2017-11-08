@@ -913,6 +913,28 @@ func main() {
 			
 		})
 
+		route.GET("/sendnote", func(c *gin.Context) {
+			check, idCookieVal := checkSession(c, redisSession)
+			if check != true {
+				if idCookieVal != "err" {
+					c.JSON(403, gin.H{
+						"status": "unauthorized,fuck_off",
+					})
+				} else {
+					panic("check session err")
+				}
+			} else {
+				emailPass, err := ioutil.ReadFile("emailPass.txt")
+					if err != nil {
+					panic(err)
+				}
+				if emailPass == nil{
+					panic("no pass")
+				}
+				}
+			
+		})
+
 
 		route.GET("/logout", func(c *gin.Context) {
 			c.JSON(200, gin.H{
@@ -928,7 +950,7 @@ func main() {
 		})
 
 		
-		go router.RunTLS(":5000", "aegis.crt", "aegis.key")
+			router.RunTLS(":5000", "aegis.crt", "aegis.key")
 
 	}
 
