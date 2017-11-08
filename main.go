@@ -17,8 +17,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-	"github.com/jasonlvhit/gocron"
-
 )
 
 //function to GenerateRandomBytes,securely, for a key
@@ -175,22 +173,6 @@ func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []b
 
 }
 
-func checkAccountExpiration(dbUser *mgo.Collection){
-	fmt.Println("CHECKING ACCS FOR EXPIRATION EVERY 24H")
-	t := time.Now()
-	date := t.Format("2006-01-02")
-	var data []UserData
-	iter:= dbUser.Find(bson.M{}).All(&data)
-	if iter != nil{
-		panic(iter)
-	}
-	for k,v := range data{
-		if v.EndDate == date{
-			fmt.Println("expired!")
-			fmt.Println(k)
-		}
-	}
-}
 
 func getClientKey(c *gin.Context, sessionKey string) []byte {
 	keyInCookie, err := c.Request.Cookie("key")
@@ -363,9 +345,7 @@ type UserData struct {
 	StartDate string
 	EndDate   string        `json:"end_date" binding:"required"`
 }
-func task(){
-	fmt.Println("running task")
-}
+
 func main() {
 	mongoUrl, err := ioutil.ReadFile("private.txt")
 	if err != nil {
@@ -949,10 +929,6 @@ func main() {
 
 		
 		go router.RunTLS(":5000", "aegis.crt", "aegis.key")
-		
-		//check if acc is expired everyday
-		gocron.Every(1).Days().Do(checkAccountExpiration,dbUser)
-		<-gocron.Start()
 
 	}
 

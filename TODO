@@ -2,7 +2,6 @@
 
 								--- BUGS/CHANGES NEEDED ---
 
-2. End Date needs to be integrated properly
 3.Note Titles on view_notes are too big, shorten them like notes are shortened
 5. DL img with encoded key after signup data has been inserted, not before.
 6. Remove "need key" message in post request to getKey 
