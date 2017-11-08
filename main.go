@@ -937,9 +937,9 @@ func main() {
 
 
 		route.GET("/logout", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"get outta": "here",
-			})
+			c.HTML(http.StatusOK,"logout.tmpl", gin.H{
+
+				})
 		})
 
 		route.GET("/pricing", func(c *gin.Context) {
