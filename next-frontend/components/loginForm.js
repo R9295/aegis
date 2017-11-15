@@ -31,11 +31,12 @@ class LoginForm extends React.Component{
     const email = this.state.email
     const password = this.state.password
     loadIMGtoCanvas('file','canvas',function(){
-      var t = readMsgFromCanvas('canvas',"",0);
+      var t = readMsgFromCanvas('canvas',password,0);
        if (t!=null){
          t=t.split('&').join('&amp;');
         t=t.split('<').join('&lt;');
-         t=t.split('>').join('&gt;');      
+         t=t.split('>').join('&gt;');
+         console.log(t)      
      } 
      axios.post("https://0.0.0.0:5000/login",{
       email:email,

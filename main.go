@@ -511,6 +511,7 @@ func main() {
 
 			var data UserData
 			c.BindJSON(&data)
+			fmt.Println(data)
 			password, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
 
 			if err != nil {
@@ -524,6 +525,9 @@ func main() {
 				KeyHash:   data.KeyHash,
 				StartDate: StartDate,
 				EndDate:   data.EndDate,
+			})
+			c.JSON(200, gin.H{
+				"response": "succ",			
 			})
 		})
 

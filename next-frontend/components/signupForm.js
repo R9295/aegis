@@ -1,7 +1,157 @@
 import Link from 'next/link'
+import React from 'react'
+import axios from 'axios'
 
 
-const SignUpForm = () =>(
+
+class SignUpForm extends React.Component{
+  constructor(props){
+    super(props)
+    this.state = {email:'',password:'',passwordTwo:'',accType:'Free',months:'1',endDate:''}
+    this.handleInputChange = this.handleInputChange.bind(this);
+    this.handleSubmit = this.handleSubmit.bind(this);
+  }
+  
+
+  handleInputChange(event){
+    const target = event.target;
+    const value =  target.value;
+    const name = target.name;
+    if (name == "months"){
+      var endDate = new Date()
+      endDate.setMonth(endDate.getMonth()+parseInt(value))
+      
+      //add one more day, as signup day is not counted.
+      const dd = endDate.getDate()+1
+
+      //add one to month as January is 0
+      const mm = endDate.getMonth()+1
+      const yyyy = endDate.getFullYear()
+      console.log(mm)
+      var endDate = yyyy+'-'+mm+"-"+dd
+      this.setState({
+        endDate:endDate
+      })
+    }
+    this.setState({
+      [name]:value
+    })
+    console.log(this.state)
+
+  }
+
+
+  handleSubmit(event){
+    event.preventDefault();
+    const email = this.state.email
+    const password = this.state.password
+    const accType = this.state.accType
+    const endDate = this.state.endDate
+    axios.post("https://0.0.0.0:5000/get_key",{
+    }).then(function(response){
+      const key = response.data.key
+      const keyHash = response.data.key_hash
+      
+      function writeIMG(img_number){
+        loadIMGtoCanvas(img_number,'canvas',function(){
+        if(writeMsgToCanvas('canvas',key,password,0)!=null){ 
+        var myCanvas = document.getElementById("canvas");  
+        var image = myCanvas.toDataURL("image/png");    
+        var element = document.createElement('a');
+        element.setAttribute('href', image);
+        element.setAttribute('download', 'key.png');
+        element.style.display = 'none';
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);   
+        }},700)
+
+      }
+      writeIMG('image_one')
+      writeIMG('image_two')
+     
+      axios.post("https://0.0.0.0:5000/signup",{
+        email:email,
+        password:password,
+        acc_type:accType,
+        end_date:endDate,
+        key_hash:keyHash
+      }).then(function(response){
+        if (response.data.response == "succ"){
+        UIkit.notification("<span uk-icon='icon: check'></span> Success!");
+        }
+      }).catch(function(err){
+        console.log(err)
+      })
+    
+    }).catch(function(err){
+      console.log(err)
+    })
+
+  }
+  render(){
+    return(
+    <form onSubmit={this.handleSubmit}>
+       <label>Email</label>
+          <input name="email" type="text" className="uk-input uk-form-width-large" value={this.state.email} onChange={this.handleInputChange} />
+          
+          <br />
+          <br />
+
+          <label>Password</label>
+          <input name="password"  className="uk-input uk-form-width-large" type="password" value={this.state.password} onChange={this.handleInputChange} />
+
+          <br />
+          <br />
+         
+         <label>Password Again</label>
+          <input name="passwordTwo"  className="uk-input uk-form-width-large" type="password" value={this.state.passwordTwo} onChange={this.handleInputChange} />
+
+          <br />
+          <br />
+
+          <input type="file" id="image_one"></input>
+          <input type="file"  id="image_two"></input>
+          <br />
+          <br />
+
+
+        <select className="uk-select uk-form-width-small" value={this.state.accType} name="accType" onChange={this.handleInputChange}>
+          <option value="free">Free</option>
+          <option value="premium">Premium</option>
+        </select>
+
+
+        < br />
+        < br />
+        
+
+        <select className="uk-select uk-form-width-small" value={this.state.months} name="months" onChange={this.handleInputChange}>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+        </select>
+
+          <br />
+          <br />
+          <button type="submit" className="uk-button uk-button-primary">Submit</button>
+
+    </form>
+    )
+  }
+}
+
+
+const signUpForm = () =>(
 	<div align="center" className="uk-container uk-container-small">
 		<h1>SignUp</h1>
     	
