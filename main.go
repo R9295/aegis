@@ -17,6 +17,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+	"github.com/gin-contrib/cors"
+
 )
 
 //function to GenerateRandomBytes,securely, for a key
@@ -317,6 +319,7 @@ type LoginData struct {
 
 type User struct {
 	id        bson.ObjectId
+	Uuid      string
 	Email     string
 	Password  string
 	AccType   string
@@ -338,6 +341,7 @@ type NoteData struct {
 
 type UserData struct {
 	id        bson.ObjectId `bson:_id,omitempty`
+	Uuid 	  string
 	Email     string        `json:"email" binding:"required"`
 	Password  string        `json:"password" binding:"required"`
 	AccType   string        `json:"acc_type" binding:"required"`
@@ -354,6 +358,7 @@ func main() {
 	}
 
 	router := gin.Default()
+	router.Use(cors.Default())
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
 	session, err := mgo.Dial(string(mongoUrl))
@@ -512,6 +517,7 @@ func main() {
 				fmt.Println(err)
 			}
 			dbUser.Insert(UserData{
+				Uuid:      xid.New().String(),
 				Email:     data.Email,
 				Password:  string(password),
 				AccType:   data.AccType,
@@ -921,16 +927,30 @@ func main() {
 						"status": "unauthorized,fuck_off",
 					})
 				} else {
+
 					panic("check session err")
 				}
 			} else {
-				emailPass, err := ioutil.ReadFile("emailPass.txt")
-					if err != nil {
-					panic(err)
+				
+				type SendNoteData struct{
+					User 		string 	`json:"user" binding:required`
+					EmailTo 	string  `json:"to" binding:required`
+					Title 		string  `json:"title" binding:required`
+					Note 		string  `json:"note" binding:required`
+					NoteType 	string  `json:"notetype" binding:required`
+
 				}
-				if emailPass == nil{
-					panic("no pass")
-				}
+				var data SendNoteData
+				c.BindJSON(&data)
+				fmt.Println(data)
+				c.JSON(200,gin.H{
+					"to":data.EmailTo,
+					"from":data.User,
+					"title":data.Title,
+					"note":data.Note,
+					"notetype":data.NoteType,
+					})
+
 				}
 			
 		})
@@ -948,6 +968,12 @@ func main() {
 			})
 
 		})
+		route.GET("/instant", func(c *gin.Context){
+
+			c.HTML(http.StatusOK,"instant.tmpl", gin.H{
+
+				})			
+			})
 
 		
 			router.RunTLS(":5000", "aegis.crt", "aegis.key")
