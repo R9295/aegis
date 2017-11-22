@@ -1,5 +1,4 @@
 package main
-
 import (
 	"crypto/rand"
 	"encoding/hex"
@@ -13,8 +12,6 @@ import (
 	"gopkg.in/mgo.v2/bson"               //generate object ids
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 	"github.com/gin-contrib/cors"
@@ -34,20 +31,12 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-func checkSession(c *gin.Context, client *redis.Client) (bool, string) {
-	idCookie, err := c.Request.Cookie("id")
-	if err != nil {
-		return false, "err"
-	}
-	idCookieVal, err := url.QueryUnescape(idCookie.Value)
-	if err != nil {
-		return false, "err"
-	}
-	check := client.Cmd("hmget", idCookieVal, "user").String()
+func checkSession(id string, client *redis.Client) (bool, string) {
+	check := client.Cmd("hmget",id, "user").String()
 	if check == "[ <nil> ]" {
 		return false, "no session"
 	}
-	return true, idCookieVal
+	return true, id
 }
 
 func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []byte, query string,pagenum string) []NoteData {
@@ -175,22 +164,12 @@ func getNotes(dbNote *mgo.Collection, queryType string, user string, userKey []b
 
 }
 
-
-func getClientKey(c *gin.Context, sessionKey string) []byte {
-	keyInCookie, err := c.Request.Cookie("key")
+func getClientKey(sessionKey string, userKey string) []byte {
+	encryptedKey, err := hex.DecodeString(userKey)
 	if err != nil {
 		panic(err)
 	}
-	keyVal, err := url.QueryUnescape(keyInCookie.Value)
-	if err != nil {
-		panic(err)
-	}
-
-	encryptedKey, err := hex.DecodeString(keyVal)
-	if err != nil {
-		panic(err)
-	}
-
+	fmt.Println(encryptedKey)
 	var nonce [24]byte
 	copy(nonce[:], encryptedKey[:24])
 
@@ -208,7 +187,6 @@ func getClientKey(c *gin.Context, sessionKey string) []byte {
 	return clientKey
 
 }
-
 func getSingleNote(dbNote *mgo.Collection, userKey []byte, uuid string, user string) (bool, NoteData) {
 
 	//append data to struct
@@ -350,7 +328,7 @@ type UserData struct {
 	EndDate   string        `json:"end_date" binding:"required"`
 }
 
-func main() {
+func main(){
 	mongoUrl, err := ioutil.ReadFile("private.txt")
 	if err != nil {
 		panic(err)
@@ -370,17 +348,10 @@ func main() {
 
 	}
 
-	//ROutes
-	route := router.Group("/")
-	{
-
-		//landing page
-		route.GET("/", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "landing.tmpl", gin.H{})
-		})
-
+	//routers
+	
 		//get key
-		route.POST("/get_key", func(c *gin.Context) {
+		router.POST("/get_key", func(c *gin.Context) {
 			key, err := GenerateRandomBytes(32)
 			if err != nil {
 				fmt.Println(err)
@@ -400,11 +371,7 @@ func main() {
 		})
 
 		//login
-		route.GET("/login", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "login.tmpl", gin.H{})
-		})
-
-		route.POST("/login", func(c *gin.Context) {
+		router.POST("/login", func(c *gin.Context) {
 			//get JSON data and bind
 			var data LoginData
 			c.BindJSON(&data)
@@ -478,9 +445,10 @@ func main() {
 							panic("error creating session,redis insert failed")
 						}
 						encodedKey := hex.EncodeToString(encryptedKey)
+						fmt.Println(encodedKey)
 						c.JSON(200, gin.H{
 							"response": "succ",
-							"key":      encodedKey,
+							"key":      data.Key,
 							"id":       uid,
 						})
 					}
@@ -498,13 +466,8 @@ func main() {
 
 		})
 
-		//signup GET
-		route.GET("/signup", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "signup.tmpl", gin.H{})
-		})
-
 		//signup POST
-		route.POST("/signup", func(c *gin.Context) {
+		router.POST("/signup", func(c *gin.Context) {
 			//get the date today
 			t := time.Now()
 			StartDate := t.Format("2006-01-02")
@@ -531,457 +494,61 @@ func main() {
 			})
 		})
 
-		//view all notes
-		route.GET("/view_notes/:pagenum", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				//session exists
-
-				//get user
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-
-				//get page number before querying
-				urlParam := c.Param("pagenum") + "0"
-				clientkey := getClientKey(c, dict["sessionKey"])
-				decryptedNotes := getNotes(dbNote,"all",dict["user"],clientkey,"empty",urlParam)
-
-				c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
-					"notes":   decryptedNotes,
-					"user":    dict["user"],
-					"pagenum": c.Param("pagenum"),
-				})
-
-
-			}
-		})
-
-		//add note
-		route.GET("/add_note/:notetype", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				noteType := c.Param("notetype")
-				if noteType == "text" {
-					c.HTML(http.StatusOK, "add_note_text.tmpl", gin.H{
-						"user": dict["user"],
-					})
-				}
-				if noteType == "audio" {
-					c.JSON(403, gin.H{
-						"status": "in_development",
-					})
-				}
-			}
-		})
-
-		route.POST("/add_note", func(c *gin.Context) {
-			//get ID
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				var note PostNoteData
-				c.BindJSON(&note)
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				clientkey := getClientKey(c, dict["sessionKey"])
-
-				//add note
-				response := addNote(dbNote, clientkey, note.NoteType, dict["user"], note.Tags, note.Note, note.Title)
-				if response != true {
-					panic("cant add note")
-				}
-				c.JSON(200, gin.H{
-					"response": "succ",
-				})
-
-			}
-		})
-
-		//edit Note
-		route.GET("/edit_note/:user/:noteuuid", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				//get URL params
-				user := c.Param("user")
-				noteuuid := c.Param("noteuuid")
-
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				clientkey := getClientKey(c, dict["sessionKey"])
-
-				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
-				if response == false {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				}
-
-				c.HTML(http.StatusOK, "edit_note_text.tmpl", gin.H{
-					"note": result,
-					"user":dict["user"],
-				})
-			}
-		})
-
-		route.POST("/edit_note/:user/:noteuuid", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				//get URL params
-				user := c.Param("user")
-				noteuuid := c.Param("noteuuid")
-
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				clientkey := getClientKey(c, dict["sessionKey"])
-
-				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
-
-	
-
-				if response == false {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-
-					var data PostNoteData
-					c.BindJSON(&data)
-					//set data to compare
-					setData := NoteData{
-						Uuid:     result.Uuid,
-						Title:    result.Title,
-						Note:     result.Note,
-						User:     result.User,
-						NoteType: result.NoteType,
-						Tags:     result.Tags,
-						WhenMade: result.WhenMade,
-					}
-
-					//get encrypted data to set if not change
-					var encryptedData NoteData
-					findNote := dbNote.Find(bson.M{"user": user, "uuid": noteuuid}).One(&encryptedData)
-					if findNote != nil {
-					panic("cant get note")
-					}
-				
-					//set key
-					var key [32]byte
-					copy(key[:], clientkey)
-					//compare Title
-					if setData.Title != data.Title {
-						//encrypt and change value
-
-						//generate Nonce
-						var titleNonce [24]byte
-						if _, err := io.ReadFull(rand.Reader, titleNonce[:]); err != nil {
-							fmt.Println("err making titlenonce")
-						}
-
-						//encrypt
-						title := []byte(data.Title)
-						encryptedTitle := secretbox.Seal(titleNonce[:], title, &titleNonce, &key)
-						hexTitle := hex.EncodeToString(encryptedTitle)
-						setData.Title = hexTitle
-
-					} else{
-						setData.Title = encryptedData.Title
-					}
-
-					//compare Note
-					if setData.Note != data.Note {
-						//encrypt and change value
-
-						//generate Nonce
-						var noteNonce [24]byte
-						if _, err := io.ReadFull(rand.Reader, noteNonce[:]); err != nil {
-							fmt.Println("err making notenonce")
-						}
-
-						//encrypt
-						note := []byte(data.Note)
-						encryptedNote := secretbox.Seal(noteNonce[:], note, &noteNonce, &key)
-						hexNote := hex.EncodeToString(encryptedNote)
-						setData.Note = hexNote
-
-					} else{
-						setData.Note = encryptedData.Note
-					}
-					
-
-					//compare Tags
-					if setData.Tags != data.Tags {
-						//change value
-						setData.Tags = data.Tags
-					} 
-
-					//update
-					query := bson.M{"uuid": setData.Uuid}
-					changeData := bson.M{"note":setData.Note,"title":setData.Title,"tags":setData.Tags,"uuid":setData.Uuid,"whenmade":setData.WhenMade,"user":setData.User,"notetype":setData.NoteType}
-					err = dbNote.Update(query, changeData)
-					if err != nil {
-						panic(err)
-					} else {
-						c.JSON(200, gin.H{
-							"response": "succ",
-						})
-					}
+		router.POST("/view_notes", func(c *gin.Context) {
+				type Asd struct{
+					PageNum    string  `json:"pagenum" binding:"required"`
+					QueryType    string  `json:"querytype" binding:"required"`
+					Query    string  `json:"query" binding:"required"`
+					User    string  `json:"user" binding:"required"`
+					Key    string  `json:"key" binding:"required"`
+					Id    string  `json:"id" binding:"required"`
 
 				}
-			}
-		})
-
-		route.GET("/deletenote/:user/:noteuuid", func(c * gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				//get URL params
-				user := c.Param("user")
-				noteuuid := c.Param("noteuuid")
-
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-
-				clientkey := getClientKey(c, dict["sessionKey"])
-				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
-				if response == false {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-				err = dbNote.Remove(bson.M{
-					"user":result.User,
-					"uuid":result.Uuid,
-					})
-			
-				}
+				var data Asd
+				c.BindJSON(&data)
+				urlParam := data.PageNum + "0"
+				key,err := hex.DecodeString(data.Key)
 				if err != nil{
 					panic(err)
-				} else{
-					c.JSON(200, gin.H{
-						"response":"succ",
-						})
 				}
-
-
-			
-		}
-		})
-
-		//view single note
-		route.GET("/view_note/:user/:noteuuid", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-
-				//get URL params
-				user := c.Param("user")
-				noteuuid := c.Param("noteuuid")
-
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				clientkey := getClientKey(c, dict["sessionKey"])
-
-				response, result := getSingleNote(dbNote, clientkey, noteuuid, user)
-				if response == false {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				}
-				c.JSON(200, gin.H{
-					"note": result,
-				})
-
-			}
-		})
-
-		route.GET("/view_notes/:pagenum/:querytype/:query", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-					panic("check session err")
-				}
-			} else {
-				//get URL params
-				pagenum := c.Param("pagenum")
-				querytype := c.Param("querytype")
-				query := c.Param("query")
-				urlParam := pagenum + "0"
-				//session exists
-
-				//get user
-				dict, err := redisSession.Cmd("hgetall", idCookieVal).Hash()
-				if err != nil {
-					panic(err)
-				}
-				clientkey := getClientKey(c, dict["sessionKey"])
-
-
-				if querytype == "date" {
-					//search by date
-
+				if data.QueryType == "date" {
 					//format data sent
-					year := query[0:4]
-					month := query[4:6]
-					day := query[6:8]
-					query = year+"-"+month+"-"+day
-					results := getNotes(dbNote,"date",dict["user"],clientkey,query,urlParam)
-					c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
+					year := data.Query[0:4]
+					month := data.Query[4:6]
+					day := data.Query[6:8]
+					query := year+"-"+month+"-"+day
+					results := getNotes(dbNote,"date",data.User,key,query,urlParam)
+					c.JSON(200,gin.H{
 					"notes":   results,
-					"user":    dict["user"],
-					"pagenum": pagenum,
+					"pagenum": data.PageNum,
 				})
 				}
-				if querytype == "tags" {
-					results := getNotes(dbNote,"tags",dict["user"],clientkey,query,urlParam)
-					c.HTML(http.StatusOK, "view_notes.tmpl", gin.H{
+				if data.QueryType == "tags" {
+					results := getNotes(dbNote,"tags",data.User,key,data.Query,urlParam)
+					c.JSON(200,gin.H{
 					"notes":   results,
-					"user":    dict["user"],
-					"pagenum": pagenum,
-				})
-				}
-				
-				
-			}
-			
-		})
-
-		route.GET("/sendnote", func(c *gin.Context) {
-			check, idCookieVal := checkSession(c, redisSession)
-			if check != true {
-				if idCookieVal != "err" {
-					c.JSON(403, gin.H{
-						"status": "unauthorized,fuck_off",
-					})
-				} else {
-
-					panic("check session err")
-				}
-			} else {
-				
-				type SendNoteData struct{
-					User 		string 	`json:"user" binding:required`
-					EmailTo 	string  `json:"to" binding:required`
-					Title 		string  `json:"title" binding:required`
-					Note 		string  `json:"note" binding:required`
-					NoteType 	string  `json:"notetype" binding:required`
-
-				}
-				var data SendNoteData
-				c.BindJSON(&data)
-				fmt.Println(data)
-				c.JSON(200,gin.H{
-					"to":data.EmailTo,
-					"from":data.User,
-					"title":data.Title,
-					"note":data.Note,
-					"notetype":data.NoteType,
+					"pagenum": data.PageNum,
 					})
 
 				}
-			
-		})
-
-
-		route.GET("/logout", func(c *gin.Context) {
-			c.HTML(http.StatusOK,"logout.tmpl", gin.H{
-
-				})
-		})
-
-		route.GET("/pricing", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "pricing.tmpl", gin.H{
+				if data.QueryType == "all"{
+					results := getNotes(dbNote,"all",data.User,key," ",urlParam)
+					c.JSON(200,gin.H{
+					"notes":   results,
+					"pagenum": data.PageNum,
+					})
+					
+				}
 				
-			})
-
+				
 		})
-		route.GET("/instant", func(c *gin.Context){
 
-			c.HTML(http.StatusOK,"instant.tmpl", gin.H{
 
-				})			
-			})
 
-		
-			router.RunTLS(":5000", "aegis.crt", "aegis.key")
 
-	}
+
+		router.RunTLS(":5000", "aegis.crt", "aegis.key")
+
+	
 
 }

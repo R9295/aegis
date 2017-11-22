@@ -1,10 +1,13 @@
 									TODO 
 
 								--- BUGS/CHANGES NEEDED ---
+1. Update All frontend on next.js
+2. Switch main.go into an API serving no HTML
 
 3.Note Titles on view_notes are too big, shorten them like notes are shortened
+4. Render View Notes on the server
 5. DL img with encoded key after signup data has been inserted, not before.
-6. Remove "need key" message in post request to getKey 
+6.Switch to redis on the frontend, not on the API server
 							
 							--- FEATURES TO ADD ---
 
@@ -17,3 +20,9 @@
 
 
 						--- WORKING ON ---
+
+BUG/CHANGE:1
+BUG/CHANGE:2:PRIORITY
+BUG/CHANGE:3:PRIORITY
+FEATURE:6
+
